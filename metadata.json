@@ -1,0 +1,8 @@
+{
+  "name": "Fieldwatch",
+  "description": "Fieldwatch Bluetooth and Wi-Fi situational awareness and signals intelligence app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
