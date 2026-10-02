@@ -76,6 +76,9 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.fieldwatch.domain.BehaviorFeatures
+import app.fieldwatch.domain.BehavioralClassifier
+import app.fieldwatch.domain.BehavioralKind
 import app.fieldwatch.domain.ClassOutline
 import app.fieldwatch.domain.ClassSlice
 import app.fieldwatch.domain.FastPair
@@ -86,6 +89,7 @@ import app.fieldwatch.domain.ListSort
 import app.fieldwatch.domain.Palette
 import app.fieldwatch.domain.RadarPlot
 import app.fieldwatch.domain.RadioKind
+import app.fieldwatch.domain.RotationDetector
 import app.fieldwatch.domain.Sighting
 import app.fieldwatch.domain.SignatureClass
 import app.fieldwatch.ui.ClassGlyphs
@@ -286,6 +290,14 @@ private fun Sighting.rowTitle(vm: FieldwatchViewModel): String {
     val watch = vm.watchLabelFor(key)
     if (!watch.isNullOrBlank()) return watch
     return listTitle(fleetIds.map { vm.fleetName(it) })
+}
+
+/** Chip-style behavioral class for the Live row. Skips UNKNOWN. */
+private fun behavioralKindFor(device: Sighting, all: List<Sighting>): BehavioralKind? {
+    val features = BehaviorFeatures.of(device)
+    val rotation = RotationDetector.rotatingCount(device, all)
+    val result = BehavioralClassifier().classify(device, features, rotation)
+    return result.kind.takeIf { it != BehavioralKind.UNKNOWN }
 }
 
 @Composable
@@ -1123,6 +1135,9 @@ fun DeviceRow(
         animationSpec = tween(if (highlighted) 90 else 280),
         label = "alertFlash",
     )
+    val behavioralKind = remember(device.key, device.rssiHistory.size, device.firstSeen) {
+        behavioralKindFor(device, vm.ui.value.devices)
+    }
     Surface(
         shape = RoundedCornerShape(if (roomy) 12.dp else 8.dp),
         color = rowColor,
@@ -1161,12 +1176,13 @@ fun DeviceRow(
                     )
                     val attention = vm.hasAttention(device)
                     val observed = vm.hasObserverNote(device)
-                    if (attention || observed || named || alerted || device.liveDecode.isNotEmpty()) {
+                    if (attention || observed || named || alerted || device.liveDecode.isNotEmpty() || behavioralKind != null) {
                         FleetNameChips(
                             device, vm, attention,
                             showNames = named,
                             alerted = alerted,
                             observed = observed,
+                            behavioral = behavioralKind,
                         )
                     }
                     if (showSub) {
@@ -1244,6 +1260,7 @@ private fun FleetNameChips(
     showNames: Boolean = true,
     alerted: Boolean = false,
     observed: Boolean = false,
+    behavioral: BehavioralKind? = null,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1302,6 +1319,30 @@ private fun FleetNameChips(
                         .padding(horizontal = 5.dp, vertical = 1.dp)
                         .size(11.dp),
                     tint = mark,
+                )
+            }
+        }
+        if (behavioral != null && behavioral != BehavioralKind.UNKNOWN) {
+            val bc = MaterialTheme.colorScheme.tertiary.nightIf(LocalNightMode.current)
+            Surface(
+                shape = RoundedCornerShape(99.dp),
+                color = bc.copy(alpha = 0.20f),
+            ) {
+                Text(
+                    behavioral.label,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 0.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        color = bc,
+                        fontSize = 10.sp,
+                        lineHeight = 11.sp,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both,
+                        ),
+                    ),
                 )
             }
         }
@@ -1429,6 +1470,9 @@ private fun TimelineView(
                 animationSpec = tween(if (device.key in flashKeys) 90 else 280),
                 label = "alertFlash",
             )
+            val behavioralKind = remember(device.key, device.rssiHistory.size, device.firstSeen) {
+                behavioralKindFor(device, vm.ui.value.devices)
+            }
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = rowColor,
@@ -1489,13 +1533,14 @@ private fun TimelineView(
                     val observed = vm.hasObserverNote(device)
                     val showNames = showFleet && device.fleetIds.isNotEmpty()
                     val alerted = device.key in alertedKeys
-                    if (attention || observed || showNames || alerted || device.liveDecode.isNotEmpty()) {
+                    if (attention || observed || showNames || alerted || device.liveDecode.isNotEmpty() || behavioralKind != null) {
                         Spacer(Modifier.height(3.dp))
                         FleetNameChips(
                             device, vm, attention,
                             showNames = showNames,
                             alerted = alerted,
                             observed = observed,
+                            behavioral = behavioralKind,
                         )
                     }
                     Spacer(Modifier.height(6.dp))

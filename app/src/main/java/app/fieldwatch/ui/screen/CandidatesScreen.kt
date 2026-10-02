@@ -50,6 +50,7 @@ import app.fieldwatch.ui.NestedTopBar
 import app.fieldwatch.ui.RadioClassBadge
 import app.fieldwatch.ui.RadioKindMark
 import app.fieldwatch.ui.FieldwatchViewModel
+import app.fieldwatch.ui.i18n.localizedLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,11 +61,12 @@ fun CandidatesScreen(
     onCreate: (SignatureCandidate) -> Unit,
 ) {
     val ui by vm.candidates.collectAsStateWithLifecycle()
+    val strings = app.fieldwatch.ui.i18n.LocalAppStrings.current
     Scaffold(
         contentWindowInsets = NestedTabInsets,
         topBar = {
             NestedTopBar(
-                title = "Signature candidates",
+                title = strings.reportsSignatureCandidates,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -83,7 +85,8 @@ fun CandidatesScreen(
                     CircularProgressIndicator()
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        "Reading the log and re-matching the catalog…",
+                        if (strings.isEs) "Leyendo el registro y cotejando con el catálogo…"
+                        else "Reading the log and re-matching the catalog…",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -102,10 +105,15 @@ fun CandidatesScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
+                        val source = if (strings.isEs) (if (report?.sourceLabel != null) report.sourceLabel else "Registro rotativo")
+                        else (report?.sourceLabel ?: "Rotating log")
+                        val rematch = if (strings.isEs) " · cotejado ahora" else " · re-matched now"
+                        val fams = report?.let {
+                            if (strings.isEs) " · ${it.families.size} ${if (it.families.size == 1) "familia" else "familias"}"
+                            else " · ${it.families.size} ${if (it.families.size == 1) "family" else "families"}"
+                        } ?: ""
                         Text(
-                            (report?.sourceLabel ?: "Rotating log") +
-                                " · re-matched now" +
-                                (report?.let { " · ${it.families.size} ${if (it.families.size == 1) "family" else "families"}" } ?: ""),
+                            "$source$rematch$fams",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -118,7 +126,7 @@ fun CandidatesScreen(
                                 tonalElevation = 1.dp,
                             ) {
                                 Text(
-                                    skipLine(report),
+                                    skipLine(report, strings.isEs),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -129,7 +137,8 @@ fun CandidatesScreen(
                     if (report == null || report.families.isEmpty()) {
                         item {
                             Text(
-                                "No signature families in this log. Randomized addresses and house-like names are skipped. A candidate needs a unique on-air ID on two or more radios.",
+                                if (strings.isEs) "No hay familias de firmas en este registro. Se omiten direcciones aleatorias y nombres residenciales. Un candidato requiere un identificador único en dos o más radios."
+                                else "No signature families in this log. Randomized addresses and house-like names are skipped. A candidate needs a unique on-air ID on two or more radios.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 12.dp),
@@ -137,7 +146,7 @@ fun CandidatesScreen(
                         }
                     } else {
                         items(report.families, key = { it.id }) { cand ->
-                            CandidateCard(cand, demoMode, onCreate)
+                            CandidateCard(cand, demoMode, strings.isEs, onCreate)
                         }
                     }
                 }
@@ -150,6 +159,7 @@ fun CandidatesScreen(
 private fun CandidateCard(
     cand: SignatureCandidate,
     demoMode: Boolean,
+    isEs: Boolean,
     onCreate: (SignatureCandidate) -> Unit,
 ) {
     val accent = Color(Palette.color(cand.colorIndex)).nightIf(LocalNightMode.current)
@@ -176,7 +186,7 @@ private fun CandidateCard(
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
                         Text(
-                            cand.kind.label(),
+                            cand.kind.localizedLabel(isEs),
                             style = compact(11.sp, 13.sp, FontWeight.SemiBold),
                             color = accent,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -205,7 +215,9 @@ private fun CandidateCard(
             )
             val examples = cand.examples.map { MacUtil.redactMacIn(it, it, demoMode && looksLikeMac(it)) }
             if (examples.isNotEmpty()) {
-                val extra = if (cand.extraCount > 0) "\nand ${cand.extraCount} more" else ""
+                val extra = if (cand.extraCount > 0) {
+                    if (isEs) "\ny ${cand.extraCount} más" else "\nand ${cand.extraCount} more"
+                } else ""
                 Text(
                     examples.joinToString(" · ") + extra,
                     style = compact(12.sp, 15.sp),
@@ -220,20 +232,29 @@ private fun CandidateCard(
                 FieldwatchActionButton(onClick = { onCreate(cand) }) {
                     Icon(Icons.Outlined.GroupAdd, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Create signature")
+                    Text(if (isEs) "Crear firma" else "Create signature")
                 }
             }
         }
     }
 }
 
-private fun skipLine(report: app.fieldwatch.domain.CandidateReport): String = buildString {
-    append("Skipped ")
-    val bits = ArrayList<String>(2)
-    if (report.skippedRandomized > 0) bits += "${report.skippedRandomized} randomized addresses"
-    if (report.skippedHouseLike > 0) bits += "${report.skippedHouseLike} house-like names"
-    append(bits.joinToString(" and "))
-    append(". Those are not catalog families.")
+private fun skipLine(report: app.fieldwatch.domain.CandidateReport, isEs: Boolean): String = buildString {
+    if (isEs) {
+        append("Omitidas ")
+        val bits = ArrayList<String>(2)
+        if (report.skippedRandomized > 0) bits += "${report.skippedRandomized} direcciones aleatorias"
+        if (report.skippedHouseLike > 0) bits += "${report.skippedHouseLike} nombres residenciales"
+        append(bits.joinToString(" y "))
+        append(". Esas no son familias del catálogo.")
+    } else {
+        append("Skipped ")
+        val bits = ArrayList<String>(2)
+        if (report.skippedRandomized > 0) bits += "${report.skippedRandomized} randomized addresses"
+        if (report.skippedHouseLike > 0) bits += "${report.skippedHouseLike} house-like names"
+        append(bits.joinToString(" and "))
+        append(". Those are not catalog families.")
+    }
 }
 
 private fun looksLikeMac(text: String): Boolean =

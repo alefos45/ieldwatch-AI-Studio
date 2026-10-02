@@ -17,6 +17,7 @@ import app.fieldwatch.FieldwatchApp
 import app.fieldwatch.domain.Observation
 import app.fieldwatch.domain.RadioKind
 import app.fieldwatch.domain.ScanIntensity
+import app.fieldwatch.domain.ScanProfile
 import app.fieldwatch.domain.detectionPolicy
 import android.os.SystemClock
 import android.util.Log
@@ -35,7 +36,8 @@ class ScanService : LifecycleService() {
     private var loop: Job? = null
     private var pump: Job? = null
     private var bleStartJob: Job? = null
-    private var lastIntensity: ScanIntensity? = null
+    /** FASE 4: el perfil efectivo ya no es solo la elección manual del operador. */
+    private var lastProfile: ScanProfile? = null
     private var lastNotifAt = 0L
     private val inbound = Channel<Observation>(512, BufferOverflow.DROP_OLDEST)
     private val publishGate = Any()
@@ -67,15 +69,18 @@ class ScanService : LifecycleService() {
         pump = lifecycleScope.launch(Dispatchers.Default) { drainInbound() }
         loop = lifecycleScope.launch(Dispatchers.Default) {
             while (isActive) {
+                val app = application as FieldwatchApp
                 val settings = app.config.settings
-                if (lastIntensity != settings.intensity) restartRadios()
+                // FASE 4: el perfil lo decide el motor adaptativo (o el modo manual).
+                val profile = app.effectiveScanProfile()
+                if (lastProfile != profile) restartRadios()
                 val unthrottled = settings.wifiFastScan && !WifiRadio.osScanThrottled(this@ScanService)
                 val wifiMin = if (unthrottled) {
                     WifiRadio.FAST_INTERVAL_MS
-                } else when (settings.intensity) {
-                    ScanIntensity.PERFORMANCE -> 30_000L
-                    ScanIntensity.BALANCED -> 40_000L
-                    ScanIntensity.SAVER -> 55_000L
+                } else when (profile) {
+                    ScanProfile.PERFORMANCE, ScanProfile.AGGRESSIVE -> 30_000L
+                    ScanProfile.BALANCED -> 40_000L
+                    ScanProfile.SAVER -> 55_000L
                 }
                 wifi.requestScan(wifiMin, unthrottled = unthrottled)
                 if (!bleStartPending() && ble.needsRestart()) {
@@ -84,7 +89,7 @@ class ScanService : LifecycleService() {
                         ble.stop()
                         delay(ble.restartBackoffMs())
                     }
-                    ble.start(settings.intensity)
+                    ble.start(profile.toScanIntensity())
                 }
                 app.devices.setRadioHold(
                     wifi = wifi.waitingOnOs(),
@@ -106,8 +111,10 @@ class ScanService : LifecycleService() {
     }
 
     private fun restartRadios() {
-        val intensity = (application as FieldwatchApp).config.settings.intensity
-        lastIntensity = intensity
+        val app = application as FieldwatchApp
+        val profile = app.effectiveScanProfile()
+        lastProfile = profile
+        val intensity = profile.toScanIntensity()
         wifi.start()
         if (ble.isRunning()) {
             ble.start(intensity)
@@ -118,7 +125,7 @@ class ScanService : LifecycleService() {
         // OEM stacks at launch when Bluetooth and Location are both on.
         bleStartJob = lifecycleScope.launch(Dispatchers.Default) {
             delay(BLE_START_STAGGER_MS)
-            ble.start((application as FieldwatchApp).config.settings.intensity)
+            ble.start((application as FieldwatchApp).effectiveScanProfile().toScanIntensity())
         }
     }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import app.fieldwatch.ui.component.FieldwatchActionButton
 import androidx.compose.material3.Icon
@@ -36,8 +38,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +54,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.fieldwatch.domain.BehaviorFeatures
+import app.fieldwatch.domain.BehavioralClass
+import app.fieldwatch.domain.BehavioralClassifier
+import app.fieldwatch.domain.BehavioralKind
 import app.fieldwatch.domain.CodDecoder
 import app.fieldwatch.domain.FamilyVerdict
 import app.fieldwatch.domain.Geo
@@ -59,11 +67,13 @@ import app.fieldwatch.domain.Palette
 import app.fieldwatch.domain.RadioDb
 import app.fieldwatch.domain.RadioBookmarks
 import app.fieldwatch.domain.RadioKind
+import app.fieldwatch.domain.RotationDetector
 import app.fieldwatch.domain.Rssi
 import app.fieldwatch.domain.ServiceDataRecord
 import app.fieldwatch.domain.Sighting
 import app.fieldwatch.domain.SignatureFamilyHint
 import app.fieldwatch.domain.SignatureFieldDecoder
+import app.fieldwatch.domain.TrainingLabel
 import app.fieldwatch.domain.hexSpaced
 import app.fieldwatch.domain.label
 import app.fieldwatch.radio.BleAdParser
@@ -270,6 +280,47 @@ fun DeviceDetailScreen(
 
             val guess = DeviceExplain.guess(device, device.fleetIds.map { vm.fleetName(it) })
             StickyHeight(device.key to "guess") { GuessCard(guess) }
+
+            // FASE 1: clasificador de comportamiento.
+            val uiState by vm.ui.collectAsStateWithLifecycle()
+            val behavior = remember(device.key, uiState.devices.size, device.rssiHistory.size) {
+                val features = BehaviorFeatures.of(device)
+                val rotation = RotationDetector.rotatingCount(device, uiState.devices)
+                BehavioralClassifier().classify(device, features, rotation)
+            }
+            if (behavior.kind != BehavioralKind.UNKNOWN) {
+                StickyHeight(device.key to "behavior") { BehaviorCard(behavior) }
+            }
+
+            // FASE 1.5: etiquetado para entrenamiento.
+            var trainingLabel by remember(device.key) { mutableStateOf<TrainingLabel?>(null) }
+            var pickLabel by remember { mutableStateOf(false) }
+            LaunchedEffect(device.key) {
+                trainingLabel = vm.trainingLabelFor(device)
+            }
+            StickyHeight(device.key to "training") {
+                TrainingCard(
+                    label = trainingLabel,
+                    suggested = behavior.kind,
+                    onPickLabel = { pickLabel = true },
+                    onClear = {
+                        vm.clearTrainingLabel(device)
+                        trainingLabel = null
+                    },
+                    enabled = uiState.settings.trainingCollectionEnabled,
+                )
+            }
+            if (pickLabel) {
+                LabelPickerDialog(
+                    onDismiss = { pickLabel = false },
+                    onPick = { label ->
+                        vm.labelDeviceForTraining(device, label)
+                        trainingLabel = label
+                        pickLabel = false
+                    },
+                )
+            }
+
             val attention = vm.attentionNotesFor(device)
             if (attention.isNotEmpty()) {
                 StickyHeight(device.key to "attention") { ExtraAttentionCard(attention) }
@@ -617,6 +668,140 @@ fun DeviceDetailScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun TrainingCard(
+    label: TrainingLabel?,
+    suggested: BehavioralKind,
+    onPickLabel: () -> Unit,
+    onClear: () -> Unit,
+    enabled: Boolean,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val container = if (label != null) scheme.primaryContainer else scheme.surfaceVariant.copy(alpha = 0.55f)
+    val onContainer = if (label != null) scheme.onPrimaryContainer else scheme.onSurface
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = container,
+    ) {
+        Column(
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                "Training data",
+                style = MaterialTheme.typography.labelSmall,
+                color = onContainer.copy(alpha = 0.78f),
+            )
+            if (label != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Labeled: ${label.name}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = onContainer,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onClear, enabled = enabled) {
+                        Text("Clear")
+                    }
+                }
+            } else if (!enabled) {
+                Text(
+                    "Collection off. Turn on in Reports → Training data to log features.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = onContainer.copy(alpha = 0.78f),
+                )
+            } else {
+                Text(
+                    "Unlabeled. Suggest: ${suggested.label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = onContainer,
+                )
+                Text(
+                    "If you recognize this device, label it. Labels feed a future ML model.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = onContainer.copy(alpha = 0.78f),
+                )
+                FieldwatchActionButton(
+                    onClick = onPickLabel,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Label for training") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LabelPickerDialog(
+    onDismiss: () -> Unit,
+    onPick: (TrainingLabel) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Label this radio") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "Pick the class that matches what you see. Choose UNSURE if you cannot tell.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TrainingLabel.entries.forEach { label ->
+                    FieldwatchActionButton(
+                        onClick = { onPick(label) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(label.name.replace('_', ' ')) }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun BehaviorCard(behavior: BehavioralClass) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = scheme.surfaceVariant.copy(alpha = 0.55f),
+    ) {
+        Column(
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                "Behavioral class",
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    behavior.kind.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${(behavior.confidence * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                )
+            }
+            behavior.because.forEach { reason ->
+                Text(
+                    "· $reason",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

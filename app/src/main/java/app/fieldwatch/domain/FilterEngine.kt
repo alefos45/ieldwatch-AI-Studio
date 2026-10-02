@@ -10,6 +10,7 @@ class FilterEngine {
         namedRadioKeys: Set<String> = emptySet(),
         watchedFleetIds: Set<String> = emptySet(),
         alertDeviceKeys: Set<String> = emptySet(),
+        behavioralKindByKey: Map<String, BehavioralKind> = emptyMap(),
     ): Boolean {
         val named = device.fleetIds.isNotEmpty()
         val namedOk = if (filter.namedOnly) named else true
@@ -32,6 +33,17 @@ class FilterEngine {
         } else true
         val includeClassOk = if (!filter.useClassFilter || filter.excludeClasses || filter.classes.isEmpty()) true
         else deviceClasses.any { it in filter.classes }
+
+        // FASE 1: behavioral class filter. UNKNOWN is a real bucket: if the
+        // operator excludes UNKNOWN, unmatched-classified radios drop too.
+        val deviceBehavioral = behavioralKindByKey[device.key] ?: BehavioralKind.UNKNOWN
+        val hideBehavioralOk = if (filter.excludeBehavioral && filter.behavioralKinds.isNotEmpty()) {
+            deviceBehavioral !in filter.behavioralKinds
+        } else true
+        val includeBehavioralOk =
+            if (!filter.useBehavioralFilter || filter.excludeBehavioral || filter.behavioralKinds.isEmpty()) true
+            else deviceBehavioral in filter.behavioralKinds
+
         val rssiOk = device.rssi >= filter.rssiMin
         val nameOk = filter.nameQuery.isBlank() ||
             TextMatch.contains(device.name, filter.nameQuery) ||
@@ -42,16 +54,18 @@ class FilterEngine {
 
         val gates = if (filter.logic == FilterLogic.AND) {
             namedOk && customNamedOk && watchedOk && typeOk && hideOk && includeOk && hideClassOk && includeClassOk &&
+                hideBehavioralOk && includeBehavioralOk &&
                 rssiOk && nameOk && ouiOk
         } else {
             val optional = mutableListOf<Boolean>()
             if (filter.includeSignatures) optional += includeOk
             if (filter.useClassFilter && !filter.excludeClasses) optional += includeClassOk
+            if (filter.useBehavioralFilter && !filter.excludeBehavioral) optional += includeBehavioralOk
             if (filter.nameQuery.isNotBlank()) optional += nameOk
             if (filter.ouiQuery.isNotBlank()) optional += ouiOk
             if (filter.rssiMin > -100) optional += rssiOk
             val any = if (optional.isEmpty()) true else optional.any { it }
-            namedOk && customNamedOk && watchedOk && typeOk && hideOk && hideClassOk && any
+            namedOk && customNamedOk && watchedOk && typeOk && hideOk && hideClassOk && hideBehavioralOk && any
         }
         if (!gates) return false
         if (filter.hideFastPairAccountKey && FastPair.isAccountKeyOnly(device)) return false

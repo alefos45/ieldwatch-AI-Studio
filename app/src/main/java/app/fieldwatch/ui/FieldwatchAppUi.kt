@@ -115,6 +115,8 @@ import app.fieldwatch.domain.ViewMode
 import app.fieldwatch.domain.FieldwatchDisclaimer
 import app.fieldwatch.domain.disclaimerOk
 import app.fieldwatch.radio.RadioPermissions
+import app.fieldwatch.ui.i18n.LocalAppStrings
+import app.fieldwatch.ui.i18n.currentStrings
 import app.fieldwatch.ui.screen.DeviceDetailScreen
 import app.fieldwatch.ui.screen.HuntScreen
 import app.fieldwatch.ui.screen.FiltersScreen
@@ -129,22 +131,26 @@ import app.fieldwatch.ui.theme.FieldwatchTheme
 @Composable
 fun FieldwatchRoot(vm: FieldwatchViewModel, onRequestPermissions: () -> Unit) {
     val state by vm.ui.collectAsStateWithLifecycle()
-    FieldwatchTheme(
-        darkTheme = true,
-        nightMode = state.settings.nightMode,
-    ) {
-        if (!state.settings.disclaimerOk()) {
-            DisclaimerGate(onAccept = vm::acceptDisclaimer)
-        } else if (!state.permissionsOk) {
-            PermissionGate(onRequestPermissions)
-        } else {
-            FieldwatchShell(state, vm)
+    val strings = currentStrings(state.settings.language)
+    CompositionLocalProvider(LocalAppStrings provides strings) {
+        FieldwatchTheme(
+            darkTheme = true,
+            nightMode = state.settings.nightMode,
+        ) {
+            if (!state.settings.disclaimerOk()) {
+                DisclaimerGate(onAccept = vm::acceptDisclaimer)
+            } else if (!state.permissionsOk) {
+                PermissionGate(onRequestPermissions)
+            } else {
+                FieldwatchShell(state, vm)
+            }
         }
     }
 }
 
 @Composable
 private fun DisclaimerGate(onAccept: () -> Unit) {
+    val strings = LocalAppStrings.current
     val ink = MaterialTheme.colorScheme.onSurface
     var agreed by remember { mutableStateOf(false) }
     Column(
@@ -155,13 +161,13 @@ private fun DisclaimerGate(onAccept: () -> Unit) {
             .padding(horizontal = 28.dp, vertical = 24.dp),
     ) {
         Text(
-            "Disclaimer and license",
+            strings.disclaimerTitle,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
             color = ink,
         )
         Text(
-            "Disclaimer",
+            strings.disclaimerSubtitle,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = ink,
@@ -205,7 +211,7 @@ private fun DisclaimerGate(onAccept: () -> Unit) {
         ) {
             Checkbox(checked = agreed, onCheckedChange = null)
             Text(
-                "I have read this and I agree",
+                strings.disclaimerAgree,
                 style = MaterialTheme.typography.bodyMedium,
                 color = ink,
                 modifier = Modifier.padding(start = 8.dp),
@@ -217,31 +223,33 @@ private fun DisclaimerGate(onAccept: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp),
-        ) { Text("Continue") }
+        ) { Text(strings.continueBtn) }
     }
 }
 
 @Composable
 private fun PermissionGate(onRequest: () -> Unit) {
+    val strings = LocalAppStrings.current
     Column(
         Modifier.fillMaxSize().padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Fieldwatch needs the radios", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(strings.permissionsTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         Text(
-            "Location, nearby Wi-Fi, Bluetooth scan, and notifications let Fieldwatch passively watch advertised networks and BLE devices. Nothing is transmitted.",
+            strings.permissionsDesc,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = onRequest) { Text("Grant permissions") }
+        Button(onClick = onRequest) { Text(strings.permissionsBtn) }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
+    val strings = LocalAppStrings.current
     val nav = rememberNavController()
     val route = nav.currentBackStackEntryAsState().value?.destination?.route ?: "live"
     val context = LocalContext.current
@@ -259,7 +267,23 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
     }
     androidx.compose.runtime.LaunchedEffect(export.share) {
         export.share?.let { intent ->
-            context.startActivity(Intent.createChooser(intent, export.shareTitle))
+            val chooserTitle = if (strings.isEs) {
+                when (export.shareTitle) {
+                    "Debrief" -> "Informe de misión"
+                    "Debrief PDF" -> "Informe de misión (PDF)"
+                    "Sit compare" -> "Comparar situaciones"
+                    "Sit compare PDF" -> "Comparar situaciones (PDF)"
+                    "Sit compare AI Export" -> "Exportación IA de comparación"
+                    "AI Export" -> "Exportación IA"
+                    "Sit export" -> "Exportar situación"
+                    "Export Fieldwatch logs" -> "Exportar registros"
+                    "Fieldwatch signatures" -> "Firmas de Fieldwatch"
+                    "Fieldwatch settings" -> "Ajustes de Fieldwatch"
+                    "Device detail" -> "Detalle de dispositivo"
+                    else -> export.shareTitle
+                }
+            } else export.shareTitle
+            context.startActivity(Intent.createChooser(intent, chooserTitle))
             vm.consumeShare()
         }
     }
@@ -269,26 +293,53 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
             title = {
                 val m = export.message.lowercase()
                 Text(
-                    when {
-                        "sit compare" in m && "pdf" in m -> "Sit compare PDF"
-                        "sit compare" in m && "ai" in m -> "Sit compare AI Export"
-                        "sit compare" in m -> "Sit compare"
-                        "ai export" in m || "ai export" in m -> "AI Export"
-                        "pdf" in m -> "Debrief PDF"
-                        "debrief" in m -> "Debrief"
-                        else -> "Export"
+                    if (strings.isEs) {
+                        when {
+                            "sit compare" in m && "pdf" in m -> "Comparar situaciones (PDF)"
+                            "sit compare" in m && "ai" in m -> "Exportación IA de comparación"
+                            "sit compare" in m -> "Comparar situaciones"
+                            "ai export" in m -> "Exportación IA"
+                            "pdf" in m -> "Informe de misión (PDF)"
+                            "debrief" in m -> "Informe de misión"
+                            "sit export" in m -> "Exportar situación"
+                            else -> "Exportando"
+                        }
+                    } else {
+                        when {
+                            "sit compare" in m && "pdf" in m -> "Sit compare PDF"
+                            "sit compare" in m && "ai" in m -> "Sit compare AI Export"
+                            "sit compare" in m -> "Sit compare"
+                            "ai export" in m -> "AI Export"
+                            "pdf" in m -> "Debrief PDF"
+                            "debrief" in m -> "Debrief"
+                            "sit export" in m -> "Sit export"
+                            else -> "Export"
+                        }
                     },
                 )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(export.message.ifBlank { "Please wait…" })
+                    Text(
+                        if (export.message.isBlank()) strings.pleaseWait
+                        else if (strings.isEs) {
+                            when {
+                                "writing debrief" in export.message.lowercase() -> "Generando informe de misión…"
+                                "gathering sit" in export.message.lowercase() -> "Recopilando datos de la situación…"
+                                "looking up place names" in export.message.lowercase() -> "Consultando nombres de lugares…"
+                                "building debrief" in export.message.lowercase() -> "Elaborando informe…"
+                                "building ai export" in export.message.lowercase() -> "Generando exportación para IA…"
+                                else -> export.message
+                            }
+                        } else export.message
+                    )
                     if ("debrief" !in export.message.lowercase() &&
                         "ai export" !in export.message.lowercase() &&
                         "sit compare" !in export.message.lowercase()
                     ) {
                         Text(
-                            "Live logging is paused until this finishes. Scanning continues.",
+                            if (strings.isEs) "El registro en vivo está pausado hasta finalizar. El escaneo continúa."
+                            else "Live logging is paused until this finishes. Scanning continues.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -310,32 +361,40 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
     if (export.error != null) {
         AlertDialog(
             onDismissRequest = vm::consumeExportNotice,
-            title = { Text(export.errorTitle ?: "Could not export") },
+            title = { Text(if (strings.isEs) "No se pudo exportar" else (export.errorTitle ?: "Could not export")) },
             text = { Text(export.error ?: "") },
             confirmButton = {
-                TextButton(onClick = vm::consumeExportNotice) { Text("OK") }
+                TextButton(onClick = vm::consumeExportNotice) { Text(strings.ok) }
             },
         )
     }
     if (export.saved) {
         AlertDialog(
             onDismissRequest = vm::consumeExportNotice,
-            title = { Text("Log saved") },
+            title = { Text(if (strings.isEs) "Registro guardado" else "Log saved") },
             text = {
-                Text("The file was written to the folder you picked. In the system picker, use the menu to choose the SD card if you want it off internal storage.")
+                Text(
+                    if (strings.isEs) "El archivo se guardó correctamente en la carpeta seleccionada."
+                    else "The file was written to the folder you picked. In the system picker, use the menu to choose the SD card if you want it off internal storage."
+                )
             },
             confirmButton = {
-                TextButton(onClick = vm::consumeExportNotice) { Text("OK") }
+                TextButton(onClick = vm::consumeExportNotice) { Text(strings.ok) }
             },
         )
     }
     if (export.cleared) {
         AlertDialog(
             onDismissRequest = vm::consumeExportNotice,
-            title = { Text("Log cleared") },
-            text = { Text("Rotated files were deleted. New detections will start a fresh log.") },
+            title = { Text(if (strings.isEs) "Registro borrado" else "Log cleared") },
+            text = {
+                Text(
+                    if (strings.isEs) "Los archivos rotativos fueron eliminados. Las nuevas detecciones iniciarán un registro nuevo."
+                    else "Rotated files were deleted. New detections will start a fresh log."
+                )
+            },
             confirmButton = {
-                TextButton(onClick = vm::consumeExportNotice) { Text("OK") }
+                TextButton(onClick = vm::consumeExportNotice) { Text(strings.ok) }
             },
         )
     }
@@ -345,7 +404,7 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
             title = { Text(export.noticeTitle ?: "") },
             text = { Text(export.noticeMessage.orEmpty()) },
             confirmButton = {
-                TextButton(onClick = vm::consumeExportNotice) { Text("OK") }
+                TextButton(onClick = vm::consumeExportNotice) { Text(strings.ok) }
             },
         )
     }
@@ -393,12 +452,13 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                                     )
                                 },
                         ) {
+                            val strings = LocalAppStrings.current
                             Text(
                                 when {
                                     state.sit.open != null && state.displayPaused ->
-                                        "FIELDWATCH  ·  SIT  ·  PAUSED"
-                                    state.sit.open != null -> "FIELDWATCH  ·  SIT"
-                                    state.displayPaused -> "FIELDWATCH  ·  PAUSED"
+                                        "FIELDWATCH  ·  ${strings.statusSit}  ·  ${strings.statusPaused}"
+                                    state.sit.open != null -> "FIELDWATCH  ·  ${strings.statusSit}"
+                                    state.displayPaused -> "FIELDWATCH  ·  ${strings.statusPaused}"
                                     else -> "FIELDWATCH"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
@@ -485,6 +545,7 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                                 .height(48.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                        val strings = LocalAppStrings.current
                         FieldwatchNavTab(
                             weight = 1f,
                             selected = route == "live",
@@ -503,10 +564,10 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                                         route == "live" && state.displayPaused -> Icons.Outlined.PlayArrow
                                         else -> Icons.Outlined.CellTower
                                     },
-                                    if (route == "live" && !state.displayPaused) "Pause display" else "Live",
+                                    if (route == "live" && !state.displayPaused) strings.navPause else strings.navLive,
                                 )
                             },
-                            label = if (route == "live" && !state.displayPaused) "Pause" else "Live",
+                            label = if (route == "live" && !state.displayPaused) strings.navPause else strings.navLive,
                         )
                         FieldwatchNavTab(
                             weight = 1f,
@@ -514,7 +575,7 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                             onBounds = { tourTargets = tourTargets.copy(filters = it) },
                             onClick = { nav.navigate("filters") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.FilterAlt, null) },
-                            label = "Filters",
+                            label = strings.navFilters,
                         )
                         FieldwatchNavTab(
                             weight = 1.45f,
@@ -522,7 +583,7 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                             onBounds = { tourTargets = tourTargets.copy(signatures = it) },
                             onClick = { nav.navigate("fleets") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.Hub, null) },
-                            label = "Signatures",
+                            label = strings.navSignatures,
                         )
                         FieldwatchNavTab(
                             weight = 1f,
@@ -530,7 +591,7 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                             onBounds = { tourTargets = tourTargets.copy(reports = it) },
                             onClick = { nav.navigate("reports") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.Description, null) },
-                            label = "Reports",
+                            label = strings.navReports,
                         )
                         FieldwatchNavTab(
                             weight = 1.05f,
@@ -538,7 +599,7 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                             onBounds = { tourTargets = tourTargets.copy(settings = it) },
                             onClick = { nav.navigate("settings") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.Settings, null) },
-                            label = "Settings",
+                            label = strings.navSettings,
                         )
                         }
                     }

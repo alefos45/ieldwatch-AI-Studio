@@ -80,6 +80,7 @@ import app.fieldwatch.domain.groupedByClass
 import app.fieldwatch.domain.sortedForCatalog
 import app.fieldwatch.ui.NestedTabInsets
 import app.fieldwatch.ui.NestedTopBar
+import app.fieldwatch.ui.i18n.LocalAppStrings
 import app.fieldwatch.ui.RadioClassBadge
 import app.fieldwatch.ui.FieldwatchUi
 import app.fieldwatch.ui.FieldwatchViewModel
@@ -139,9 +140,10 @@ fun FleetsScreen(
         )
         return
     }
+    val strings = LocalAppStrings.current
     Scaffold(
         contentWindowInsets = NestedTabInsets,
-        topBar = { NestedTopBar("Signatures (${state.fleets.size})") },
+        topBar = { NestedTopBar("${strings.signaturesTitle} (${state.fleets.size})") },
         floatingActionButton = {
             FloatingActionButton(onClick = vm::beginNewFleet) {
                 Icon(Icons.Outlined.Add, "New signature")

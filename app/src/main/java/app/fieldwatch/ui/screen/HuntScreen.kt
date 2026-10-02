@@ -35,6 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
@@ -46,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import app.fieldwatch.domain.Bearing
+import app.fieldwatch.domain.BearingCue
 import app.fieldwatch.domain.DeviceExplain
 import app.fieldwatch.domain.MacUtil
 import app.fieldwatch.domain.Hunt
@@ -53,10 +58,14 @@ import app.fieldwatch.domain.HuntCue
 import app.fieldwatch.domain.Palette
 import app.fieldwatch.ui.FieldwatchViewModel
 import app.fieldwatch.ui.component.Sparkline
+import app.fieldwatch.ui.i18n.AppStrings
+import app.fieldwatch.ui.i18n.LocalAppStrings
 import app.fieldwatch.ui.component.rssiColor
 import app.fieldwatch.ui.theme.LocalNightMode
 import app.fieldwatch.ui.theme.nightIf
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,15 +113,24 @@ fun HuntScreen(
         HuntCue.QUIET -> Color(0xFFFFB020).nightIf(night)
         HuntCue.GONE -> Color(0xFFFF3D5A).nightIf(night)
     }
+    val bearing = hunt.bearing
+    val bearingColor = when (bearing.cue) {
+        BearingCue.AHEAD -> Color(0xFF3DFF9A).nightIf(night)
+        BearingCue.SLIGHT_LEFT, BearingCue.SLIGHT_RIGHT -> Color(0xFFB0FF8A).nightIf(night)
+        BearingCue.LEFT, BearingCue.RIGHT -> Color(0xFFFFB020).nightIf(night)
+        BearingCue.BEHIND -> Color(0xFFFF8A4C).nightIf(night)
+        BearingCue.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
     val now = System.currentTimeMillis()
     val heardAgo = if (hunt.lastSeen > 0L) ((now - hunt.lastSeen) / 1000L).coerceAtLeast(0L) else null
+    val strings = LocalAppStrings.current
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     val shown = hunt.device?.let { MacUtil.redactMacIn(hunt.title, it.mac, demoMode) } ?: hunt.title
-                    Text(shown.ifBlank { "Hunt" }, maxLines = 1)
+                    Text(shown.ifBlank { strings.huntTitle }, maxLines = 1)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -134,13 +152,13 @@ fun HuntScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = hunt.active,
                 ) {
-                    Text("Reset this hunt")
+                    Text(strings.huntReset)
                 }
                 FieldwatchActionButton(
                     onClick = onBack,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Back to detail")
+                    Text(strings.close)
                 }
                 Row(
                     Modifier.fillMaxWidth(),
@@ -201,10 +219,22 @@ fun HuntScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            Text(
+                bearingLabel(bearing, hunt.sensorAvailable, strings),
+                color = bearingColor,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 20.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+            )
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(48.dp),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Text(
@@ -217,12 +247,11 @@ fun HuntScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(Modifier.height(8.dp))
             Text(
                 rssi?.toString() ?: "—",
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
-                fontSize = 72.sp,
+                fontSize = 64.sp,
                 color = accent,
             )
             Text(
@@ -231,11 +260,8 @@ fun HuntScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                if (hunt.peakRssi > -127) {
-                    "Loudest this hunt  ${hunt.peakRssi} dBm"
-                } else {
-                    "Loudest this hunt  —"
-                },
+                if (hunt.peakRssi > -127) "${strings.huntLoudest}  ${hunt.peakRssi} dBm"
+                else "${strings.huntLoudest}  —",
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -253,6 +279,9 @@ fun HuntScreen(
             HuntNeedle(
                 cue = hunt.cue,
                 color = cueColor,
+                bearing = bearing,
+                bearingColor = bearingColor,
+                youLabel = strings.huntYou,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -269,10 +298,28 @@ fun HuntScreen(
     }
 }
 
+private fun bearingLabel(b: Bearing, sensorOk: Boolean, strings: AppStrings): String {
+    if (!sensorOk) return strings.bearingNoSensor
+    if (b.cue == BearingCue.UNKNOWN || b.relativeDeg.isNaN()) return strings.bearingTurnInPlace
+    val deg = kotlin.math.abs(b.relativeDeg).toInt()
+    return when (b.cue) {
+        BearingCue.AHEAD -> "${strings.bearingAhead}  ($deg°)"
+        BearingCue.BEHIND -> "${strings.bearingBehind}  ($deg°)"
+        BearingCue.SLIGHT_LEFT -> "${strings.bearingSlightLeft}  ($deg°)"
+        BearingCue.SLIGHT_RIGHT -> "${strings.bearingSlightRight}  ($deg°)"
+        BearingCue.LEFT -> "${strings.bearingTurnLeft}  ($deg°)"
+        BearingCue.RIGHT -> "${strings.bearingTurnRight}  ($deg°)"
+        BearingCue.UNKNOWN -> strings.bearingTurnInPlace
+    }
+}
+
 @Composable
 private fun HuntNeedle(
     cue: HuntCue,
     color: Color,
+    bearing: Bearing,
+    bearingColor: Color,
+    youLabel: String = "YOU",
     modifier: Modifier = Modifier,
 ) {
     val period = when (cue) {
@@ -305,6 +352,7 @@ private fun HuntNeedle(
         val c = Offset(size.width / 2f, size.height / 2f)
         val maxR = min(size.width, size.height) * 0.42f
         if (maxR < 8f) return@Canvas
+
         for (i in 1..3) {
             drawCircle(
                 color = ringIdle,
@@ -313,6 +361,7 @@ private fun HuntNeedle(
                 style = Stroke(width = 1.4f),
             )
         }
+
         fun pulse(frac: Float, alpha: Float, width: Float) {
             val r = (maxR * frac).coerceAtLeast(2f)
             drawCircle(
@@ -343,11 +392,59 @@ private fun HuntNeedle(
             HuntCue.QUIET -> pulse(0.72f, 0.4f, 2.8f)
             HuntCue.GONE -> pulse(0.88f, 0.28f, 2.2f)
         }
+
+        if (!bearing.relativeDeg.isNaN() && bearing.cue != BearingCue.UNKNOWN) {
+            drawBearingArrow(c, maxR, bearing.relativeDeg, bearingColor, bearing.confidence)
+        }
+
         drawCircle(color.copy(alpha = 0.95f), radius = 5.5f, center = c)
-        val you = measurer.measure("YOU", youStyle)
-        drawText(
-            you,
-            topLeft = Offset(c.x - you.size.width / 2f, c.y + 10f),
-        )
+        val you = measurer.measure(youLabel, youStyle)
+        drawText(you, topLeft = Offset(c.x - you.size.width / 2f, c.y + 10f))
     }
+}
+
+private fun DrawScope.drawBearingArrow(
+    center: Offset,
+    maxR: Float,
+    relativeDeg: Float,
+    color: Color,
+    confidence: Float,
+) {
+    val rad = Math.toRadians(relativeDeg.toDouble() - 90.0)
+    val alpha = (0.45f + 0.55f * confidence).coerceIn(0f, 1f)
+    val shaft = color.copy(alpha = alpha)
+    val head = color.copy(alpha = alpha)
+    val tipR = maxR * 0.82f
+    val tip = Offset(
+        (center.x + cos(rad) * tipR).toFloat(),
+        (center.y + sin(rad) * tipR).toFloat(),
+    )
+    drawLine(
+        color = shaft,
+        start = center,
+        end = tip,
+        strokeWidth = 5f,
+        cap = StrokeCap.Round,
+    )
+    val headLen = 20f
+    val back = Offset(
+        (tip.x - cos(rad) * headLen).toFloat(),
+        (tip.y - sin(rad) * headLen).toFloat(),
+    )
+    val perp = rad + Math.PI / 2
+    val left = Offset(
+        (back.x + cos(perp) * headLen * 0.6).toFloat(),
+        (back.y + sin(perp) * headLen * 0.6).toFloat(),
+    )
+    val right = Offset(
+        (back.x - cos(perp) * headLen * 0.6).toFloat(),
+        (back.y - sin(perp) * headLen * 0.6).toFloat(),
+    )
+    val path = Path().apply {
+        moveTo(tip.x, tip.y)
+        lineTo(left.x, left.y)
+        lineTo(right.x, right.y)
+        close()
+    }
+    drawPath(path, head)
 }

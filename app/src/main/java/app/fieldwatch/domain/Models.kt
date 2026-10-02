@@ -486,6 +486,14 @@ data class FilterState(
     val useClassFilter: Boolean = false,
     val excludeClasses: Boolean = false,
     val classes: Set<SignatureClass> = emptySet(),
+    /**
+     * FASE 1: behavioral class filter. Include or hide Live rows by the
+     * computed [BehavioralKind]. Independent of signature class filter.
+     * Requires a behavioralKindByKey map computed in the ViewModel.
+     */
+    val useBehavioralFilter: Boolean = false,
+    val excludeBehavioral: Boolean = false,
+    val behavioralKinds: Set<BehavioralKind> = emptySet(),
 ) {
     /** Show only is narrowing Live to at least one picked class. Empty Show only does not hide unmatched. */
     fun classIncludeActive(): Boolean =
@@ -494,6 +502,15 @@ data class FilterState(
     fun signatureIncludeActive(): Boolean =
         includeSignatures && includeFleetIds.isNotEmpty()
 
+    /** Behavioral Show only with at least one kind picked. */
+    fun behavioralIncludeActive(): Boolean =
+        useBehavioralFilter && !excludeBehavioral && behavioralKinds.isNotEmpty()
+
+    /**
+     * Show only hides unmatched radios. Behavioral Show only does NOT imply
+     * named-only: a behavioral match can be unnamed. But class/signature
+     * Show only does — those need a matched signature to be visible.
+     */
     fun namedOnlyImplied(): Boolean = classIncludeActive() || signatureIncludeActive()
 }
 
@@ -548,6 +565,8 @@ data class WatchTarget(
 
 @Serializable
 data class AppSettings(
+    /** App display language: "auto", "en", or "es". */
+    val language: String = "auto",
     /** Kept in settings packs. The UI is always dark; Night mode is the red overlay. */
     val darkTheme: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -638,6 +657,21 @@ data class AppSettings(
     val signatureListSort: SignatureListSort = SignatureListSort.NAME,
     /** By class: hide class headers with 0 radios. Off = show all (zeros stay). */
     val outlineHideEmpty: Boolean = false,
+    /**
+     * FASE 1: guarda features de comportamiento en JSONL para entrenar ML
+     * en el futuro. Off por defecto. Solo escribe a disco local.
+     */
+    val trainingCollectionEnabled: Boolean = false,
+    /**
+     * FASE 4: cómo se decide el perfil de escaneo.
+     * MANUAL = el operador elige [intensity] (comportamiento previo).
+     * ADAPTIVE = el motor adaptativo decide según contexto, respetando [adaptiveFloor].
+     */
+    val intensityMode: IntensityMode = IntensityMode.MANUAL,
+    /** FASE 4: mínimo perfil cuando intensityMode = ADAPTIVE. Nunca baja de aquí. */
+    val adaptiveFloor: ScanProfile = ScanProfile.SAVER,
+    /** FASE 4: lugares guardados por el operador (casa, trabajo, otros). */
+    val knownPlaces: List<KnownPlace> = emptyList(),
 )
 
 const val DISCLAIMER_REV = 3

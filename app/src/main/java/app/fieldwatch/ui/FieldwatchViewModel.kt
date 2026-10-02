@@ -18,6 +18,11 @@ import app.fieldwatch.data.CatalogRemote
 import app.fieldwatch.data.DebriefPdf
 import app.fieldwatch.data.PathTiles
 import app.fieldwatch.data.PlaceLookup
+import app.fieldwatch.domain.Bearing
+import app.fieldwatch.domain.BearingEstimator
+import app.fieldwatch.domain.BehaviorFeatures
+import app.fieldwatch.domain.BehavioralClassifier
+import app.fieldwatch.domain.BehavioralKind
 import app.fieldwatch.domain.DeviceDetailPrompt
 import app.fieldwatch.domain.DeviceDetailText
 import app.fieldwatch.domain.DebriefDoc
@@ -45,12 +50,16 @@ import app.fieldwatch.domain.FamilyVerdict
 import app.fieldwatch.domain.LogRadio
 import app.fieldwatch.domain.RadioBookmarks
 import app.fieldwatch.domain.RadioKind
+import app.fieldwatch.domain.RotationDetector
+import app.fieldwatch.domain.Rssi
+import app.fieldwatch.domain.RssiKalman
 import app.fieldwatch.domain.RssiSample
 import app.fieldwatch.domain.Sighting
 import app.fieldwatch.domain.SignatureCandidate
 import app.fieldwatch.domain.SignatureCandidates
 import app.fieldwatch.domain.SignatureFamilyHint
 import app.fieldwatch.domain.CandidateReport
+import app.fieldwatch.domain.TrainingLabel
 
 import app.fieldwatch.domain.SignatureClass
 import app.fieldwatch.domain.SignatureEngine
@@ -71,6 +80,7 @@ import app.fieldwatch.domain.SitDiffPrompt
 import app.fieldwatch.domain.SitPathPlot
 import app.fieldwatch.domain.SitUi
 import app.fieldwatch.radio.RadioPermissions
+import app.fieldwatch.radio.RotationSensor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -201,6 +211,16 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
     private val huntStartedAt = MutableStateFlow(0L)
     private val huntPeakRssi = MutableStateFlow(-127)
     private val huntSamples = MutableStateFlow<List<RssiSample>>(emptyList())
+    // FASE 2: filtro de Kalman + estimador de dirección + sensor de rotación
+    private val rssiKalman = RssiKalman(q = 0.15, r = 4.0)
+    private val bearingEstimator = BearingEstimator()
+    @Volatile private var rotationSensor: RotationSensor? = null
+    private val _bearing = MutableStateFlow(Bearing.Unknown)
+    val bearing: StateFlow<Bearing> = _bearing
+    // FASE 1.5: contadores de recolección de features.
+    private val _trainingCounts = MutableStateFlow(0 to 0)
+    val trainingCounts: StateFlow<Pair<Int, Int>> = _trainingCounts
+    private val trainingCapturedThisSession = HashSet<String>(512)
     private val _outlineOpenClasses = MutableStateFlow<Set<String>>(emptySet())
     val outlineOpenClasses: StateFlow<Set<String>> = _outlineOpenClasses
     private val _outlineOpenSigs = MutableStateFlow<Set<String>>(emptySet())
@@ -208,6 +228,23 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
     private val _catalogOpenClasses = MutableStateFlow<Set<String>>(emptySet())
     val catalogOpenClasses: StateFlow<Set<String>> = _catalogOpenClasses
     @Volatile private var frozenUi: FieldwatchUi? = null
+
+    /**
+     * Clase de comportamiento calculada bajo demanda. No usa la ventana
+     * temporal de [RotationDetector] porque en el filtro necesitamos
+     * consistencia con la lista completa, no con el histórico de 10 min.
+     */
+    private fun behavioralKindFor(
+        device: Sighting,
+        all: List<Sighting>,
+        now: Long,
+        nameCount: Map<String, Int>,
+    ): BehavioralKind {
+        val features = BehaviorFeatures.of(device, now)
+        val name = device.name.trim()
+        val rotation = ((nameCount[name] ?: 1) - 1).coerceAtLeast(0)
+        return BehavioralClassifier().classify(device, features, rotation).kind
+    }
 
     private val liveUi: StateFlow<FieldwatchUi> = combine(
         combine(app.devices.devices, app.devices.stats, app.config.config) { devices, stats, config ->
@@ -245,6 +282,22 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
             CoTravel.Ctx.None
         }
         val classById = config.fleets.associate { it.id to it.kind }
+        // FASE 1.5: solo calculamos behavioralKind si el filtro lo pide.
+        val behavioralKindByKey: Map<String, BehavioralKind> =
+            if (config.filter.useBehavioralFilter) {
+                val nameCount = HashMap<String, Int>(labeled.size)
+                for (d in labeled) {
+                    val n = d.name.trim()
+                    if (n.isNotEmpty()) nameCount[n] = (nameCount[n] ?: 0) + 1
+                }
+                val acc = HashMap<String, BehavioralKind>(labeled.size)
+                for (d in labeled) {
+                    acc[d.key] = behavioralKindFor(d, labeled, now, nameCount)
+                }
+                acc
+            } else {
+                emptyMap()
+            }
         val filtered = labeled.filter { device ->
             if (!filters.pass(
                     device,
@@ -255,6 +308,7 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
                     watchNames.keys,
                     RadioBookmarks.watchedFleetIds(config.watchlist),
                     RadioBookmarks.alertDeviceKeys(config.watchlist),
+                    behavioralKindByKey,
                 )
             ) {
                 return@filter false
@@ -364,13 +418,15 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
         FieldwatchUi(settings = app.config.settings),
     )
 
+    // FASE 2: el flujo de Hunt añade _bearing como cuarta fuente.
     val hunt: StateFlow<HuntUi> = combine(
         combine(huntKey, huntStartedAt, huntPeakRssi, huntSamples) { key, started, peak, samples ->
             arrayOf(key, started, peak, samples)
         },
         app.devices.devices,
         clock,
-    ) { bits, devices, now ->
+        _bearing,
+    ) { bits, devices, now, bearing ->
         val key = bits[0] as String?
         val started = bits[1] as Long
         val peak = bits[2] as Int
@@ -386,6 +442,8 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
             peakRssi = peak,
             samples = samples,
             lastSeen = device?.lastSeen ?: 0L,
+            bearing = bearing,
+            sensorAvailable = rotationSensor?.available ?: true,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HuntUi())
 
@@ -417,6 +475,7 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
                     .onFailure { familyLog.value = familyLog.value.copy(loaded = true) }
             }
         }
+        // FASE 2: alimenta Kalman + estimador de dirección con cada paquete nuevo.
         viewModelScope.launch {
             combine(app.devices.devices, huntKey) { devices, key ->
                 key to devices.firstOrNull { it.key == key }
@@ -424,10 +483,49 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
                 if (key == null || device == null) return@collect
                 val last = huntSamples.value.lastOrNull()
                 if (last != null && device.lastSeen <= last.at) return@collect
+                if (!Rssi.measured(device.rssi)) return@collect
+
+                val smoothed = rssiKalman.update(device.rssi.toDouble())
                 val sample = RssiSample(device.lastSeen, device.rssi)
                 huntSamples.update { (it + sample).takeLast(120) }
                 if (device.rssi > huntPeakRssi.value) huntPeakRssi.value = device.rssi
+
+                val yaw = rotationSensor?.lastHeading ?: Float.NaN
+                if (!yaw.isNaN()) {
+                    _bearing.value = bearingEstimator.add(yaw, smoothed, device.lastSeen)
+                }
             }
+        }
+        // FASE 2: ticker. Aunque no llegue paquete, el rumbo actual cambia al girar.
+        viewModelScope.launch {
+            while (true) {
+                delay(500L)
+                if (huntKey.value == null) continue
+                val yaw = rotationSensor?.lastHeading ?: continue
+                if (yaw.isNaN()) continue
+                _bearing.value = bearingEstimator.estimate(yaw)
+            }
+        }
+        // FASE 1.5: captura pasiva de features cuando el operador la activa.
+        viewModelScope.launch {
+            app.devices.devices.collect { devices ->
+                if (!app.config.settings.trainingCollectionEnabled) return@collect
+                val classifier = BehavioralClassifier()
+                for (device in devices) {
+                    if (!trainingCapturedThisSession.add(device.key)) continue
+                    val features = BehaviorFeatures.of(device)
+                    val rotation = RotationDetector.rotatingCount(device, devices)
+                    val heuristic = classifier.classify(device, features, rotation)
+                    val ok = app.training.record(device, features, heuristic)
+                    if (ok) {
+                        _trainingCounts.update { (t, l) -> (t + 1) to l }
+                    }
+                }
+            }
+        }
+        // FASE 1.5: contar filas ya existentes al arrancar.
+        viewModelScope.launch {
+            refreshTrainingCounts()
         }
         viewModelScope.launch {
             app.alerter.flashes.collect { key ->
@@ -503,12 +601,21 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
         selectedKey.value = device.key
     }
 
+    // FASE 2: startHunt resetea Kalman y estimador, y arranca el sensor de rotación.
     fun startHunt(device: Sighting) {
         val now = System.currentTimeMillis()
         huntKey.value = device.key
         huntStartedAt.value = now
-        huntPeakRssi.value = device.rssi
-        huntSamples.value = listOf(RssiSample(now, device.rssi))
+        huntPeakRssi.value = if (Rssi.measured(device.rssi)) device.rssi else -127
+        huntSamples.value = if (Rssi.measured(device.rssi)) {
+            listOf(RssiSample(now, device.rssi))
+        } else {
+            emptyList()
+        }
+        rssiKalman.reset()
+        bearingEstimator.reset()
+        _bearing.value = Bearing.Unknown
+        startRotationSensor()
     }
 
     fun resetHunt() {
@@ -517,17 +624,115 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
         startHunt(live)
     }
 
+    // FASE 2: stopHunt libera el sensor de rotación.
     fun stopHunt() {
         huntKey.value = null
         huntSamples.value = emptyList()
         huntPeakRssi.value = -127
         huntStartedAt.value = 0L
+        bearingEstimator.reset()
+        _bearing.value = Bearing.Unknown
+        rotationSensor?.stop()
+    }
+
+    private fun startRotationSensor() {
+        val s = rotationSensor ?: RotationSensor(app).also { rotationSensor = it }
+        s.start()
     }
 
     fun huntTick(beepOn: Boolean, vibrateOn: Boolean) {
         if (!beepOn && !vibrateOn) return
         app.alerter.huntTick(beepOn, vibrateOn)
     }
+
+    // ---------------------------------------------------------------------
+    // FASE 1.5: API pública de entrenamiento
+    // ---------------------------------------------------------------------
+
+    /** Etiqueta ya asignada a este radio, si existe. */
+    suspend fun trainingLabelFor(device: Sighting): TrainingLabel? {
+        val hash = app.training.deviceHash(device)
+        return app.training.labelFor(hash)
+    }
+
+    /**
+     * Etiqueta este radio. Si no existe la fila (p.ej. porque la recolección
+     * estaba apagada), la crea forzada antes de etiquetar.
+     */
+    fun labelDeviceForTraining(device: Sighting, label: TrainingLabel) {
+        viewModelScope.launch {
+            val hash = app.training.deviceHash(device)
+            val existing = app.training.labelFor(hash)
+            if (existing == null) {
+                val devices = app.devices.devices.value
+                val features = BehaviorFeatures.of(device)
+                val rotation = RotationDetector.rotatingCount(device, devices)
+                val heuristic = BehavioralClassifier().classify(device, features, rotation)
+                app.training.recordForced(device, features, heuristic)
+            }
+            app.training.label(hash, label)
+            refreshTrainingCounts()
+        }
+    }
+
+    fun clearTrainingLabel(device: Sighting) {
+        viewModelScope.launch {
+            val hash = app.training.deviceHash(device)
+            app.training.clearLabel(hash)
+            refreshTrainingCounts()
+        }
+    }
+
+    fun startExportTrainingData() {
+        if (_export.value.active) return
+        viewModelScope.launch {
+            runExport("Exporting training data…") {
+                val file = app.training.exportCombined()
+                val uri: Uri = FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "application/x-ndjson"
+                    clipData = ClipData.newRawUri("training", uri)
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Fieldwatch training data")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            }.onSuccess { intent ->
+                _export.value = ExportUi(
+                    active = false,
+                    progress = 1f,
+                    share = intent,
+                    shareTitle = "Training data",
+                )
+            }
+        }
+    }
+
+    fun clearTrainingData() {
+        if (_export.value.active) return
+        viewModelScope.launch {
+            runCatching { app.training.clear() }
+                .onSuccess {
+                    _trainingCounts.value = 0 to 0
+                    trainingCapturedThisSession.clear()
+                    _export.value = ExportUi(
+                        noticeTitle = "Training data cleared",
+                        noticeMessage = "All collected feature samples were removed from this phone.",
+                    )
+                }
+                .onFailure { err ->
+                    _export.value = ExportUi(
+                        error = err.message ?: "Could not clear training data",
+                    )
+                }
+        }
+    }
+
+    private suspend fun refreshTrainingCounts() {
+        val counts = app.training.counts()
+        _trainingCounts.value = counts
+    }
+
+    // ---------------------------------------------------------------------
 
     fun setViewMode(mode: ViewMode) {
         viewModelScope.launch {
@@ -1053,6 +1258,10 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
                 )
             }
             if (next.alertVoice) app.alerter.prepareVoice()
+            // FASE 1.5: si apagan la recolección, detener la sesión de captura.
+            if (prev.trainingCollectionEnabled && !next.trainingCollectionEnabled) {
+                trainingCapturedThisSession.clear()
+            }
         }
     }
 
@@ -2275,4 +2484,7 @@ data class HuntUi(
     val peakRssi: Int = -127,
     val samples: List<RssiSample> = emptyList(),
     val lastSeen: Long = 0L,
+    // FASE 2: dirección relativa + disponibilidad del sensor.
+    val bearing: Bearing = Bearing.Unknown,
+    val sensorAvailable: Boolean = true,
 )

@@ -12,6 +12,10 @@ import app.fieldwatch.data.ConfigStore
 import app.fieldwatch.data.DeviceStore
 import app.fieldwatch.data.LogStore
 import app.fieldwatch.data.SitStore
+import app.fieldwatch.data.TrainingStore
+import app.fieldwatch.domain.BehaviorFeatures
+import app.fieldwatch.domain.BehavioralClassifier
+import app.fieldwatch.domain.BehavioralKind
 import app.fieldwatch.domain.CoTravel
 import app.fieldwatch.domain.FilterEngine
 import app.fieldwatch.domain.Geo
@@ -19,6 +23,8 @@ import app.fieldwatch.domain.GpsSample
 import app.fieldwatch.domain.RadioBookmarks
 import app.fieldwatch.domain.RadioDb
 import app.fieldwatch.domain.RadioKind
+import app.fieldwatch.domain.ScanIntensity
+import app.fieldwatch.domain.ScanProfile
 import app.fieldwatch.domain.Sighting
 import app.fieldwatch.radio.ScanService
 import app.fieldwatch.radio.TakPublisher
@@ -45,6 +51,8 @@ class FieldwatchApp : Application() {
         private set
     lateinit var tak: TakPublisher
         private set
+    lateinit var training: TrainingStore
+        private set
     private val filters = FilterEngine()
     private val _arrivals = MutableStateFlow(ArrivalsState())
     val arrivals: StateFlow<ArrivalsState> = _arrivals.asStateFlow()
@@ -52,6 +60,18 @@ class FieldwatchApp : Application() {
     private var wifiLearnPending = false
     @Volatile
     private var persistArrivalsAt = 0L
+
+    /**
+     * Caché del mapa behavioralKindByKey para el filtro conductual.
+     * Recalculado cada 1 s mientras el filtro esté activo. Barato en RAM
+     * y evita O(N^2) cuando el Alerter llama a wouldShowOnLive muchas
+     * veces por ciclo.
+     */
+    @Volatile private var behavioralCache: Map<String, BehavioralKind> = emptyMap()
+    @Volatile private var behavioralCacheAt: Long = 0L
+
+    /** FASE 4: indica si hay una búsqueda activa (Hunt o similar) que fuerza AGGRESSIVE. */
+    @Volatile var searchActive: Boolean = false
 
     @Volatile
     var lastFix: Pair<Double, Double>? = null
@@ -70,6 +90,7 @@ class FieldwatchApp : Application() {
         sits = SitStore(this, scope)
         alerter = Alerter(this)
         tak = TakPublisher()
+        training = TrainingStore(this)
         runBlocking {
             config.load()
             logs.configure(
@@ -84,6 +105,29 @@ class FieldwatchApp : Application() {
         if (config.settings.alertVoice) alerter.prepareVoice()
         if (config.filter.arrivalsOnly) {
             beginArrivals(keepRemembered = true)
+        }
+    }
+
+    /**
+     * FASE 4 — STUB TEMPORAL. El Bloque 3 reemplazará este cuerpo con:
+     *   val ctx = contextTracker.current()
+     *   AdaptiveScanPolicy.decide(
+     *       state = ctx,
+     *       mode = settings.intensityMode,
+     *       floor = settings.adaptiveFloor,
+     *       manual = settings.intensity,
+     *       searchActive = searchActive,
+     *   )
+     *
+     * Por ahora devuelve el equivalente manual de [AppSettings.intensity] para
+     * que [ScanService] compile y siga funcionando igual que antes.
+     */
+    fun effectiveScanProfile(): ScanProfile {
+        val intensity = config.settings.intensity
+        return when (intensity) {
+            ScanIntensity.SAVER -> ScanProfile.SAVER
+            ScanIntensity.BALANCED -> ScanProfile.BALANCED
+            ScanIntensity.PERFORMANCE -> ScanProfile.PERFORMANCE
         }
     }
 
@@ -170,22 +214,53 @@ class FieldwatchApp : Application() {
         return device.key in st.knownKeys || (learning && device.kind == RadioKind.WIFI)
     }
 
+    /**
+     * Recalcula el mapa key→BehavioralKind para todos los radios vivos.
+     * Coincide con la lógica del [app.fieldwatch.ui.FieldwatchViewModel].
+     */
+    private fun currentBehavioralMap(devices: List<Sighting>, now: Long): Map<String, BehavioralKind> {
+        if (!config.filter.useBehavioralFilter) return emptyMap()
+        if (now - behavioralCacheAt < 1_000L && behavioralCache.isNotEmpty()) {
+            return behavioralCache
+        }
+        val classifier = BehavioralClassifier()
+        val nameCount = HashMap<String, Int>(devices.size)
+        for (d in devices) {
+            val n = d.name.trim()
+            if (n.isNotEmpty()) nameCount[n] = (nameCount[n] ?: 0) + 1
+        }
+        val acc = HashMap<String, BehavioralKind>(devices.size)
+        for (d in devices) {
+            val features = BehaviorFeatures.of(d, now)
+            val name = d.name.trim()
+            val rotation = ((nameCount[name] ?: 1) - 1).coerceAtLeast(0)
+            acc[d.key] = classifier.classify(d, features, rotation).kind
+        }
+        behavioralCache = acc
+        behavioralCacheAt = now
+        return acc
+    }
+
     fun wouldShowOnLive(device: Sighting): Boolean {
         if (device.gone) return false
+        val now = System.currentTimeMillis()
         val travel = if (config.filter.movingWithYou) {
             CoTravel.Ctx.of(operatorPathCopy())
         } else {
             CoTravel.Ctx.None
         }
         val classById = config.fleets.associate { it.id to it.kind }
+        val behavioralKindByKey = currentBehavioralMap(devices.devices.value, now)
         if (!filters.pass(
                 device,
                 config.filter,
                 travel,
+                now,
                 classByFleetId = classById,
                 namedRadioKeys = RadioBookmarks.namedKeys(config.watchlist),
                 watchedFleetIds = RadioBookmarks.watchedFleetIds(config.watchlist),
                 alertDeviceKeys = RadioBookmarks.alertDeviceKeys(config.watchlist),
+                behavioralKindByKey = behavioralKindByKey,
             )
         ) return false
         if (isHiddenByArrivals(device)) return false

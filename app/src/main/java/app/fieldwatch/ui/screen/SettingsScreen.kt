@@ -76,6 +76,8 @@ import app.fieldwatch.ui.component.SectionCard
 import app.fieldwatch.ui.component.FieldwatchFilterChip
 import app.fieldwatch.ui.component.StableCaption
 import app.fieldwatch.ui.component.StickyHeight
+import app.fieldwatch.ui.i18n.AppLanguage
+import app.fieldwatch.ui.i18n.LocalAppStrings
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -88,6 +90,7 @@ fun SettingsScreen(
     onShowLiveTour: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val settings = state.settings
     val saveSignatures = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -104,7 +107,7 @@ fun SettingsScreen(
     var confirmRestore by remember { mutableStateOf(false) }
     Scaffold(
         contentWindowInsets = NestedTabInsets,
-        topBar = { NestedTopBar("Settings") },
+        topBar = { NestedTopBar(strings.settingsTitle) },
     ) { pad ->
         Column(
             Modifier
@@ -114,33 +117,59 @@ fun SettingsScreen(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionCard("Appearance") {
+            SectionCard(strings.languageSection) {
+                Text(
+                    strings.languageDesc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppLanguage.entries.forEach { lang ->
+                        FieldwatchFilterChip(
+                            selected = settings.language == lang.code,
+                            onClick = { vm.updateSettings { it.copy(language = lang.code) } },
+                            label = {
+                                Text(
+                                    when (lang) {
+                                        AppLanguage.AUTO -> strings.languageAuto
+                                        AppLanguage.ENGLISH -> "English"
+                                        AppLanguage.SPANISH -> "Español"
+                                    }
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+
+            SectionCard(strings.appearanceSection) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Night mode", Modifier.weight(1f))
+                Text(strings.nightMode, Modifier.weight(1f))
                 FieldwatchSwitch(settings.nightMode, { on -> vm.updateSettings { it.copy(nightMode = on) } })
             }
             Text(
-                "Off by default. Red-on-black field display so chips, text, and signal marks " +
-                    "do not dump green or blue into a dark sit. Background stays dark. " +
-                    "Phone brightness is unchanged.",
+                strings.nightModeDesc,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Keep screen on", Modifier.weight(1f))
+                Text(strings.keepScreenOn, Modifier.weight(1f))
                 FieldwatchSwitch(settings.keepScreenOn, { on -> vm.updateSettings { it.copy(keepScreenOn = on) } })
             }
             Text(
-                "On by default. Stops the display from sleeping while Fieldwatch is open so BLE is not parked when the phone blanks. Scanning still runs in the notification if you leave the app. Turn it off when you pocket the phone.",
+                strings.keepScreenOnDesc,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Privacy mode", Modifier.weight(1f))
+                Text(strings.privacyMode, Modifier.weight(1f))
                 FieldwatchSwitch(settings.demoMode, { on -> vm.updateSettings { it.copy(demoMode = on) } })
             }
             Text(
-                "Hides the last three octets of every MAC on Live, radar, timeline, detail, Hunt, Named radios, and watchlist cards as **:**:** so the screen and sit reports do not show full addresses. GPS last-fix and Debrief / AI Export / detail Share coordinates become “masked”; street names are omitted from those sit reports. The first three octets (OUI / vendor prefix) stay. Off by default. The map on Reports → Path still loads when Online place names and maps is on. Logs, matching, filters, Hunt math, Moving with you, and saved signatures still use the real MAC and GPS. A TAK / CoT feed, if you turned it on, is paused while this is on so full MACs and coordinates are not sent onto the LAN. Turn this off when you need the full address or coordinates on screen.",
+                strings.privacyModeDesc,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
