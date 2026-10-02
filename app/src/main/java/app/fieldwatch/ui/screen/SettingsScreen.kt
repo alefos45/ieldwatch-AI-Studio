@@ -26,13 +26,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
 import app.fieldwatch.ui.component.FieldwatchFilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import app.fieldwatch.ui.component.FieldwatchActionButton
+import app.fieldwatch.ui.component.FieldwatchDropdownField
 import app.fieldwatch.ui.component.FieldwatchOutlinedField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -60,9 +66,14 @@ import app.fieldwatch.R
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.fieldwatch.domain.AlertVoiceWhat
 import app.fieldwatch.domain.AppSettings
+import app.fieldwatch.domain.ContextState
+import app.fieldwatch.domain.IntensityMode
+import app.fieldwatch.domain.PlaceKind
 import app.fieldwatch.domain.ScanIntensity
+import app.fieldwatch.domain.ScanProfile
 import app.fieldwatch.domain.TakDefaults
 import app.fieldwatch.domain.TakFeedStatus
 import app.fieldwatch.domain.TakPublish
@@ -353,6 +364,144 @@ fun SettingsScreen(
                     },
                 )
             }
+            }
+
+            SectionCard("Adaptive scanning") {
+            val ctx by vm.contextState.collectAsStateWithLifecycle()
+            val effective by vm.effectiveScanProfile.collectAsStateWithLifecycle()
+            var floorOpen by remember { mutableStateOf(false) }
+            var addPlaceError by remember { mutableStateOf<String?>(null) }
+            Text(
+                "How Fieldwatch picks the scan cadence from your context. Manual keeps the slider above exactly as set. Adaptive lowers the cadence when you are still, on battery, at Home or Work, or the screen is off — and raises it when you are moving or the screen is on.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text("Mode", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FieldwatchFilterChip(
+                    selected = settings.intensityMode == IntensityMode.MANUAL,
+                    onClick = { vm.setIntensityMode(IntensityMode.MANUAL) },
+                    label = { Text("Manual") },
+                )
+                FieldwatchFilterChip(
+                    selected = settings.intensityMode == IntensityMode.ADAPTIVE,
+                    onClick = { vm.setIntensityMode(IntensityMode.ADAPTIVE) },
+                    label = { Text("Adaptive") },
+                )
+            }
+            Text(
+                if (settings.intensityMode == IntensityMode.MANUAL) {
+                    "Manual: the Scan intensity slider above is used exactly as set."
+                } else {
+                    "Adaptive: the Scan intensity slider above becomes the manual fallback; the context decides the actual profile, never below the floor."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Text("Minimum profile", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+            val floorOptions = listOf(
+                ScanProfile.SAVER,
+                ScanProfile.BALANCED,
+                ScanProfile.PERFORMANCE,
+            )
+            ExposedDropdownMenuBox(
+                expanded = floorOpen,
+                onExpandedChange = { floorOpen = it },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                FieldwatchDropdownField(
+                    label = "Floor",
+                    value = scanProfileLabel(settings.adaptiveFloor),
+                    expanded = floorOpen,
+                )
+                ExposedDropdownMenu(floorOpen, { floorOpen = false }) {
+                    floorOptions.forEach { profile ->
+                        DropdownMenuItem(
+                            text = { Text(scanProfileLabel(profile)) },
+                            onClick = {
+                                vm.setAdaptiveFloor(profile)
+                                floorOpen = false
+                            },
+                        )
+                    }
+                }
+            }
+            Text(
+                "Adaptive never drops below this profile. Saver is the lowest, Performance is the highest. Aggressive is only used while hunting.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Text("Saved places", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+            if (settings.knownPlaces.isEmpty()) {
+                Text(
+                    "No saved places yet. Add Home or Work so Adaptive can drop to the floor when you are there.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                settings.knownPlaces.forEach { place ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(place.label, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "${place.kind.label()}  ·  %.5f, %.5f".format(place.lat, place.lon),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { vm.removeKnownPlace(place.id) }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Remove ${place.label}")
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FieldwatchActionButton(
+                    onClick = {
+                        addPlaceError = null
+                        if (!vm.addCurrentPlaceAs(PlaceKind.HOME, "Home")) {
+                            addPlaceError = "No GPS fix yet. Wait for a lock or enable Tag detections with GPS."
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("Add Home") }
+                FieldwatchActionButton(
+                    onClick = {
+                        addPlaceError = null
+                        if (!vm.addCurrentPlaceAs(PlaceKind.WORK, "Work")) {
+                            addPlaceError = "No GPS fix yet. Wait for a lock or enable Tag detections with GPS."
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("Add Work") }
+            }
+            if (!settings.tagLocation) {
+                Text(
+                    "Tag detections with GPS must be on to save a place (Location section below).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (addPlaceError != null) {
+                Text(
+                    addPlaceError!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Text("Current context", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+            ContextStatusCard(ctx, effective, settings.intensityMode)
             }
 
             SectionCard("Watchlist") {
@@ -700,6 +849,58 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { confirmRestore = false }) { Text("Cancel") }
             },
+        )
+    }
+}
+
+// FASE 4 (Bloque 4): helpers para la sección Adaptive scanning.
+
+private fun scanProfileLabel(profile: ScanProfile): String = when (profile) {
+    ScanProfile.SAVER -> "Saver"
+    ScanProfile.BALANCED -> "Balanced"
+    ScanProfile.PERFORMANCE -> "Performance"
+    ScanProfile.AGGRESSIVE -> "Aggressive (hunting)"
+}
+
+@Composable
+private fun ContextStatusCard(
+    ctx: ContextState,
+    effective: ScanProfile,
+    mode: IntensityMode,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        ContextRow("Activity", "${ctx.activity.label()} (${ctx.activityConfidence}%)")
+        ContextRow("Place", ctx.place.label())
+        ContextRow("Screen", if (ctx.screenOn) "On" else "Off")
+        ContextRow(
+            "Battery",
+            "${ctx.batteryLevel}%" + if (ctx.batteryCharging) "  ·  charging" else "",
+        )
+        ContextRow(
+            "Effective profile",
+            scanProfileLabel(effective) +
+                if (mode == IntensityMode.MANUAL) "  ·  Manual" else "  ·  Adaptive",
+        )
+    }
+}
+
+@Composable
+private fun ContextRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }

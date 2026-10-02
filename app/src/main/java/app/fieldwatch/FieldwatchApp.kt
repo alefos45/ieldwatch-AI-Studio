@@ -91,8 +91,17 @@ class FieldwatchApp : Application() {
     var searchActive: Boolean = false
         private set
 
+    /**
+     * FASE 4 (Bloque 4): versión reactiva de [searchActive] para que
+     * el ViewModel pueda combinarla en `effectiveScanProfile` sin
+     * tocar el scan loop (que sigue leyendo el `@Volatile` booleano).
+     */
+    private val _searchActiveFlow = MutableStateFlow(false)
+    val searchActiveFlow: StateFlow<Boolean> = _searchActiveFlow.asStateFlow()
+
     fun setSearchActive(on: Boolean) {
         searchActive = on
+        _searchActiveFlow.value = on
     }
 
     @Volatile

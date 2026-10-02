@@ -10,7 +10,13 @@ import androidx.lifecycle.viewModelScope
 import app.fieldwatch.BuildConfig
 import app.fieldwatch.FieldwatchApp
 import app.fieldwatch.domain.AircraftTrail
+import app.fieldwatch.domain.AdaptiveScanPolicy
 import app.fieldwatch.domain.AppSettings
+import app.fieldwatch.domain.ContextState
+import app.fieldwatch.domain.IntensityMode
+import app.fieldwatch.domain.KnownPlace
+import app.fieldwatch.domain.PlaceKind
+import app.fieldwatch.domain.ScanProfile
 import app.fieldwatch.domain.attentionNotes
 import app.fieldwatch.domain.signatureNotes
 import app.fieldwatch.domain.detectionPolicy
@@ -192,6 +198,38 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
     private val displayPaused = MutableStateFlow(false)
     private val heldSelected = MutableStateFlow<Sighting?>(null)
     private val familyLog = MutableStateFlow(FamilyLogSnap())
+
+    /**
+     * FASE 4 (Bloque 4): contexto del operador expuesto a la UI.
+     * Es directamente el [FieldwatchApp.contextState] para no duplicar
+     * el espejo del ContextTracker.
+     */
+    val contextState: StateFlow<ContextState> = app.contextState
+
+    /**
+     * FASE 4 (Bloque 4): perfil de escaneo efectivo, reactivo a los
+     * cambios de contexto, de ajustes (mode/floor/manual) y de búsqueda.
+     * Mismo cálculo que [FieldwatchApp.effectiveScanProfile] pero
+     * como StateFlow para que la tarjeta de Settings se recomponga.
+     */
+    val effectiveScanProfile: StateFlow<ScanProfile> = combine(
+        app.contextState,
+        app.config.config,
+        app.searchActiveFlow,
+    ) { ctx, cfg, search ->
+        AdaptiveScanPolicy.decide(
+            state = ctx,
+            mode = cfg.settings.intensityMode,
+            floor = cfg.settings.adaptiveFloor,
+            manual = cfg.settings.intensity,
+            searchActive = search,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        app.effectiveScanProfile(),
+    )
+
     val familyHint: StateFlow<SignatureFamilyHint?> = combine(
         selectedKey,
         heldSelected,
@@ -854,6 +892,57 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
             app.config.update { it.copy(settings = it.settings.copy(listSubtitleLine = line)) }
         }
     }
+
+    // ---------------------------------------------------------------------
+    // FASE 4 (Bloque 4): Adaptive scanning — expuesto a SettingsScreen.
+    // ---------------------------------------------------------------------
+
+    fun setIntensityMode(mode: IntensityMode) {
+        updateSettings { it.copy(intensityMode = mode) }
+    }
+
+    fun setAdaptiveFloor(floor: ScanProfile) {
+        updateSettings { it.copy(adaptiveFloor = floor) }
+    }
+
+    /**
+     * Añade un lugar conocido. [label] se recorta y si queda vacío usa
+     * el label por defecto de [kind]. El radio por defecto es 150 m —
+     * suficiente para Home/Work sin captar la manzana entera.
+     */
+    fun addKnownPlace(lat: Double, lon: Double, kind: PlaceKind, label: String) {
+        updateSettings { settings ->
+            val place = KnownPlace(
+                id = UUID.randomUUID().toString(),
+                kind = kind,
+                label = label.trim().ifBlank { kind.label() },
+                lat = lat,
+                lon = lon,
+                radiusM = 150.0,
+            )
+            settings.copy(knownPlaces = settings.knownPlaces + place)
+        }
+    }
+
+    fun removeKnownPlace(id: String) {
+        updateSettings { settings ->
+            settings.copy(knownPlaces = settings.knownPlaces.filterNot { it.id == id })
+        }
+    }
+
+    /**
+     * Guarda el último fix GPS como lugar. Devuelve `true` si había fix,
+     * `false` si no (p.ej. GPS aún no ha emitido, o "Tag detections with
+     * GPS" está apagado). La escritura en ConfigStore es asíncrona, pero
+     * el chequeo de fix es sincrónico para dar feedback inmediato en UI.
+     */
+    fun addCurrentPlaceAs(kind: PlaceKind, label: String): Boolean {
+        val fix = app.lastFix ?: return false
+        addKnownPlace(fix.first, fix.second, kind, label)
+        return true
+    }
+
+    // ---------------------------------------------------------------------
 
     fun markArrivalsSeen() {
         val keys = if (displayPaused.value) frozenUi?.filtered?.map { it.key } else null

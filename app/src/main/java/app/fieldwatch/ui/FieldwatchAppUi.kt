@@ -505,9 +505,9 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
                                         Icons.Outlined.Tune
                                     },
                                     if (state.settings.scanControlsExpanded) {
-                                        "Hide scan options"
+                                        if (strings.isEs) "Ocultar opciones de vista" else "Hide scan options"
                                     } else {
-                                        "Show scan options"
+                                        if (strings.isEs) "Opciones de visualización (Radar, lista…)" else "Show scan options"
                                     },
                                     modifier = Modifier.onGloballyPositioned {
                                         tourTargets = tourTargets.copy(tune = it.boundsInRoot())
@@ -884,22 +884,30 @@ private fun ViewPicker(
     onChangeTitleLine: (ListLine) -> Unit,
     onChangeSubtitleLine: (ListLine) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var openView by remember { mutableStateOf(false) }
     var openSort by remember { mutableStateOf(false) }
-    val viewLabel = mode.label()
+    fun viewName(m: ViewMode): String = when (m) {
+        ViewMode.RADAR -> if (strings.isEs) "Radar clásico" else "Classic radar"
+        ViewMode.LIST -> if (strings.isEs) "Lista por intensidad" else "Strength list"
+        ViewMode.TIMELINE -> if (strings.isEs) "Línea de tiempo" else "Timeline"
+        ViewMode.HYBRID -> if (strings.isEs) "Híbrido + sparklines" else "Hybrid + sparklines"
+        ViewMode.BY_CLASS -> if (strings.isEs) "Por clase" else "By class"
+    }
+    val viewLabel = viewName(mode)
     var openDecay by remember { mutableStateOf(false) }
     var openTitle by remember { mutableStateOf(false) }
     var openSubtitle by remember { mutableStateOf(false) }
     val sortLabel = when (listSort) {
-        ListSort.STRENGTH -> if (sort == StrengthSort.AVERAGE) "Strongest · avg ${windowSec}s" else "Strongest"
-        ListSort.NEWEST -> "Newest heard"
-        ListSort.NEWEST_ALERT -> "Newest alert"
-        ListSort.FIRST_SEEN -> "Newest arrival"
-        ListSort.ARRIVAL -> "New at bottom"
-        ListSort.NAME -> "Name A–Z"
-        ListSort.SIGNATURES -> "Signatures first"
+        ListSort.STRENGTH -> if (sort == StrengthSort.AVERAGE) (if (strings.isEs) "Más fuerte · prom ${windowSec}s" else "Strongest · avg ${windowSec}s") else (if (strings.isEs) "Más fuerte" else "Strongest")
+        ListSort.NEWEST -> if (strings.isEs) "Más reciente escuchado" else "Newest heard"
+        ListSort.NEWEST_ALERT -> if (strings.isEs) "Alerta más reciente" else "Newest alert"
+        ListSort.FIRST_SEEN -> if (strings.isEs) "Llegada más reciente" else "Newest arrival"
+        ListSort.ARRIVAL -> if (strings.isEs) "Nuevos abajo" else "New at bottom"
+        ListSort.NAME -> if (strings.isEs) "Nombre A–Z" else "Name A–Z"
+        ListSort.SIGNATURES -> if (strings.isEs) "Firmas primero" else "Signatures first"
     }
-    val decayLabel = if (decaySec <= 0) "Off" else "Hold ${decaySec}s"
+    val decayLabel = if (decaySec <= 0) (if (strings.isEs) "Desactivado" else "Off") else (if (strings.isEs) "Retener ${decaySec}s" else "Hold ${decaySec}s")
     val scroll = rememberScrollState()
     val panelMax = (maxHeight - 8.dp).coerceAtLeast(140.dp)
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -922,87 +930,87 @@ private fun ViewPicker(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                "Display",
+                if (strings.isEs) "Visualización" else "Display",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val dropdownPad = Modifier.fillMaxWidth().padding(vertical = 6.dp)
             ExposedDropdownMenuBox(openView, { openView = it }, dropdownPad) {
-                FieldwatchDropdownField("View", viewLabel, openView)
+                FieldwatchDropdownField(if (strings.isEs) "Vista" else "View", viewLabel, openView)
                 ExposedDropdownMenu(openView, { openView = false }) {
                     ViewMode.entries.forEach { item ->
                         DropdownMenuItem(
-                            text = { Text(item.label()) },
+                            text = { Text(viewName(item)) },
                             onClick = { onChangeView(item); openView = false },
                         )
                     }
                 }
             }
             ExposedDropdownMenuBox(openSort, { openSort = it }, dropdownPad) {
-                FieldwatchDropdownField("Sort", sortLabel, openSort)
+                FieldwatchDropdownField(if (strings.isEs) "Orden" else "Sort", sortLabel, openSort)
                 ExposedDropdownMenu(openSort, { openSort = false }) {
                     DropdownMenuItem(
-                        text = { Text("Strongest signal") },
+                        text = { Text(if (strings.isEs) "Señal más fuerte" else "Strongest signal") },
                         onClick = { onChangeSort(StrengthSort.INSTANT, null); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("Strongest (avg 30s)") },
+                        text = { Text(if (strings.isEs) "Más fuerte (prom 30s)" else "Strongest (avg 30s)") },
                         onClick = { onChangeSort(StrengthSort.AVERAGE, 30); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("Newest heard") },
+                        text = { Text(if (strings.isEs) "Más reciente escuchado" else "Newest heard") },
                         onClick = { onChangeListSort(ListSort.NEWEST); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("Newest alert") },
+                        text = { Text(if (strings.isEs) "Alerta más reciente" else "Newest alert") },
                         onClick = { onChangeListSort(ListSort.NEWEST_ALERT); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("Newest arrival") },
+                        text = { Text(if (strings.isEs) "Llegada más reciente" else "Newest arrival") },
                         onClick = { onChangeListSort(ListSort.FIRST_SEEN); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("New at bottom") },
+                        text = { Text(if (strings.isEs) "Nuevos abajo" else "New at bottom") },
                         onClick = { onChangeListSort(ListSort.ARRIVAL); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("Name A–Z") },
+                        text = { Text(if (strings.isEs) "Nombre A–Z" else "Name A–Z") },
                         onClick = { onChangeListSort(ListSort.NAME); openSort = false },
                     )
                     DropdownMenuItem(
-                        text = { Text("Signatures first") },
+                        text = { Text(if (strings.isEs) "Firmas primero" else "Signatures first") },
                         onClick = { onChangeListSort(ListSort.SIGNATURES); openSort = false },
                     )
                 }
             }
             ExposedDropdownMenuBox(openDecay, { openDecay = it }, dropdownPad) {
-                FieldwatchDropdownField("Brief hold", decayLabel, openDecay)
+                FieldwatchDropdownField(if (strings.isEs) "Retención breve" else "Brief hold", decayLabel, openDecay)
                 ExposedDropdownMenu(openDecay, { openDecay = false }) {
                     DropdownMenuItem(
-                        text = { Text("Off — Stale after only") },
+                        text = { Text(if (strings.isEs) "Desactivado — Solo caducados" else "Off — Stale after only") },
                         onClick = { onChangeDecay(0); openDecay = false },
                     )
                     listOf(10, 30, 60).forEach { sec ->
                         DropdownMenuItem(
-                            text = { Text("Hold ${sec}s after last packet") },
+                            text = { Text(if (strings.isEs) "Retener ${sec}s tras último paquete" else "Hold ${sec}s after last packet") },
                             onClick = { onChangeDecay(sec); openDecay = false },
                         )
                     }
                 }
             }
             ExposedDropdownMenuBox(openTitle, { openTitle = it }, dropdownPad) {
-                FieldwatchDropdownField("Title line", listLineLabel(titleLine), openTitle)
+                FieldwatchDropdownField(if (strings.isEs) "Línea de título" else "Title line", listLineLabel(titleLine, strings.isEs), openTitle)
                 ExposedDropdownMenu(openTitle, { openTitle = false }) {
                     listOf(ListLine.ADVERTISED_NAME, ListLine.NAME_AND_TYPE, ListLine.MAC).forEach { item ->
                         DropdownMenuItem(
-                            text = { Text(listLineLabel(item)) },
+                            text = { Text(listLineLabel(item, strings.isEs)) },
                             onClick = { onChangeTitleLine(item); openTitle = false },
                         )
                     }
                 }
             }
             ExposedDropdownMenuBox(openSubtitle, { openSubtitle = it }, dropdownPad) {
-                FieldwatchDropdownField("Subtitle line", listLineLabel(subtitleLine), openSubtitle)
+                FieldwatchDropdownField(if (strings.isEs) "Línea de subtítulo" else "Subtitle line", listLineLabel(subtitleLine, strings.isEs), openSubtitle)
                 ExposedDropdownMenu(openSubtitle, { openSubtitle = false }) {
                     listOf(
                         ListLine.ADVERTISED_NAME,
@@ -1011,16 +1019,16 @@ private fun ViewPicker(
                         ListLine.NONE,
                     ).forEach { item ->
                         DropdownMenuItem(
-                            text = { Text(listLineLabel(item)) },
+                            text = { Text(listLineLabel(item, strings.isEs)) },
                             onClick = { onChangeSubtitleLine(item); openSubtitle = false },
                         )
                     }
                 }
             }
-            OptionSwitch("RSSI bars", showBar, onToggleBar)
-            OptionSwitch("Signature names", showFleet, onToggleFleet)
-            OptionSwitch("Frequency", showFrequency, onToggleFrequency)
-            OptionSwitch("First / last seen", showSeenTimes, onToggleSeenTimes)
+            OptionSwitch(if (strings.isEs) "Barras RSSI" else "RSSI bars", showBar, onToggleBar)
+            OptionSwitch(if (strings.isEs) "Nombres de firmas" else "Signature names", showFleet, onToggleFleet)
+            OptionSwitch(if (strings.isEs) "Frecuencia" else "Frequency", showFrequency, onToggleFrequency)
+            OptionSwitch(if (strings.isEs) "Primera / última vez visto" else "First / last seen", showSeenTimes, onToggleSeenTimes)
         }
         if (scroll.canScrollForward) {
             Box(
@@ -1037,7 +1045,7 @@ private fun ViewPicker(
             ) {
                 Icon(
                     Icons.Outlined.ExpandMore,
-                    contentDescription = "More display options below",
+                    contentDescription = if (strings.isEs) "Más opciones abajo" else "More display options below",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
                 )
@@ -1047,11 +1055,16 @@ private fun ViewPicker(
     }
 }
 
-private fun listLineLabel(line: ListLine): String = when (line) {
+private fun listLineLabel(line: ListLine, isEs: Boolean = false): String = if (!isEs) when (line) {
     ListLine.ADVERTISED_NAME -> "Advertised name"
     ListLine.NAME_AND_TYPE -> "Name + type"
     ListLine.MAC -> "MAC address"
     ListLine.NONE -> "None"
+} else when (line) {
+    ListLine.ADVERTISED_NAME -> "Nombre anunciado"
+    ListLine.NAME_AND_TYPE -> "Nombre + tipo"
+    ListLine.MAC -> "Dirección MAC"
+    ListLine.NONE -> "Ninguno"
 }
 
 @Composable

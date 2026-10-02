@@ -24,7 +24,9 @@ object RotationDetector {
         val name = device.name.trim()
         if (name.isEmpty()) return 0
         if (name.equals(device.mac, ignoreCase = true)) return 0
-        val cutoff = now - windowMs
+        val maxSeen = all.maxOfOrNull { it.lastSeen } ?: device.lastSeen
+        val effectiveNow = if (maxSeen > 0L && now - maxSeen > 24 * 3600_000L) maxSeen else now
+        val cutoff = effectiveNow - windowMs
         return all.count { other ->
             other.kind == device.kind &&
                 other.key != device.key &&

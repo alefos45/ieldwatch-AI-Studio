@@ -69,7 +69,7 @@ class BehavioralClassifier {
         val appearance = features.appearanceCode
 
         // ---- Finder tags ------------------------------------------------
-        if (features.hasRandomizedMac) add(BehavioralKind.FINDER_TAG, 0.35, "randomized MAC")
+        if (features.hasRandomizedMac) add(BehavioralKind.FINDER_TAG, 0.3, "randomized MAC")
         if (features.companyId == 0x004C && mfgFirst == "12") {
             add(BehavioralKind.FINDER_TAG, 0.9, "Find My / Offline Finding payload")
         }
@@ -87,8 +87,8 @@ class BehavioralClassifier {
         if (features.manufacturerPayloadBytes in 1..12 && features.hasRandomizedMac) {
             add(BehavioralKind.FINDER_TAG, 0.2, "short randomized payload")
         }
-        if (rotationCount >= 2) {
-            add(BehavioralKind.FINDER_TAG, 0.5, "name on $rotationCount MACs (rotating)")
+        if (rotationCount >= 1) {
+            add(BehavioralKind.FINDER_TAG, 0.5, "name on ${rotationCount + 1} MACs (rotating)")
         }
         if (features.advIntervalMs?.let { it in 1_500.0..3_500.0 } == true) {
             add(BehavioralKind.FINDER_TAG, 0.25, "advertising ~2 s")
@@ -104,7 +104,7 @@ class BehavioralClassifier {
         if (appearance == 0x0040 || appearance == 0x0080 || appearance == 0x01C0) {
             add(BehavioralKind.ROTATING_PHONE, 0.4, "appearance phone/computer")
         }
-        if (features.hasRandomizedMac && features.durationMs < 5 * 60_000L) {
+        if (features.hasRandomizedMac && features.durationMs in 1L until 5 * 60_000L) {
             add(BehavioralKind.ROTATING_PHONE, 0.2, "short duration")
         }
 
