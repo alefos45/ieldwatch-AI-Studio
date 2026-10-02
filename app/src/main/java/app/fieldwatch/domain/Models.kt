@@ -678,6 +678,23 @@ data class AppSettings(
     val adaptiveFloor: ScanProfile = ScanProfile.SAVER,
     /** FASE 4: lugares guardados por el operador (casa, trabajo, otros). */
     val knownPlaces: List<KnownPlace> = emptyList(),
+    /**
+     * FASE 5 (Bloque 1): modo de alto contraste para uso bajo sol directo.
+     * Refuerza el contraste de texto crítico (RSSI, nombre, clase) y chips.
+     * No cambia la paleta base ni toca la lógica de nightMode.
+     */
+    val a11yHighContrast: Boolean = false,
+    /**
+     * FASE 5 (Bloque 1): reduce animaciones decorativas (radar sweep, flashes,
+     * transiciones). Respeta además el ajuste del sistema. No afecta la
+     * navegación ni animaciones funcionales cortas.
+     */
+    val a11yReduceMotion: Boolean = false,
+    /**
+     * FASE 5 (Bloque 1): reservado. Amplía áreas táctiles más allá del mínimo
+     * Material de 48dp en componentes que lo admitan. Por defecto off.
+     */
+    val a11yLargeTouch: Boolean = false,
 )
 
 const val DISCLAIMER_REV = 3

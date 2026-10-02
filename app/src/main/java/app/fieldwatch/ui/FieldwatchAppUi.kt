@@ -116,6 +116,8 @@ import app.fieldwatch.domain.ViewMode
 import app.fieldwatch.domain.FieldwatchDisclaimer
 import app.fieldwatch.domain.disclaimerOk
 import app.fieldwatch.radio.RadioPermissions
+import app.fieldwatch.ui.a11y.A11yState
+import app.fieldwatch.ui.a11y.LocalA11yState
 import app.fieldwatch.ui.i18n.LocalAppStrings
 import app.fieldwatch.ui.i18n.currentStrings
 import app.fieldwatch.ui.screen.DeviceDetailScreen
@@ -132,9 +134,13 @@ import app.fieldwatch.ui.theme.FieldwatchTheme
 @Composable
 fun FieldwatchRoot(vm: FieldwatchViewModel, onRequestPermissions: () -> Unit) {
     val state by vm.ui.collectAsStateWithLifecycle()
+    val a11yState by vm.a11yState.collectAsStateWithLifecycle()
     val strings = currentStrings(state.settings.language)
     var bypassGate by remember { mutableStateOf(false) }
-    CompositionLocalProvider(LocalAppStrings provides strings) {
+    CompositionLocalProvider(
+        LocalAppStrings provides strings,
+        LocalA11yState provides a11yState,
+    ) {
         FieldwatchTheme(
             darkTheme = true,
             nightMode = state.settings.nightMode,

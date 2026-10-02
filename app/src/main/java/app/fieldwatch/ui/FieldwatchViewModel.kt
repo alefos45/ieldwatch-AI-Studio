@@ -87,6 +87,7 @@ import app.fieldwatch.domain.SitPathPlot
 import app.fieldwatch.domain.SitUi
 import app.fieldwatch.radio.RadioPermissions
 import app.fieldwatch.radio.RotationSensor
+import app.fieldwatch.ui.a11y.A11yState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -96,6 +97,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -229,6 +231,25 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
         SharingStarted.WhileSubscribed(5_000),
         app.effectiveScanProfile(),
     )
+
+    /**
+     * FASE 5 (Bloque 1): snapshot reactivo de preferencias de accesibilidad.
+     * Derivado de AppSettings. Se expone a la UI (Bloques 2–7 lo consumen).
+     * No altera lógica de escaneo ni de filtrado.
+     */
+    val a11yState: StateFlow<A11yState> = app.config.config
+        .map { cfg ->
+            A11yState(
+                highContrast = cfg.settings.a11yHighContrast,
+                reduceMotion = cfg.settings.a11yReduceMotion,
+                largeTouch = cfg.settings.a11yLargeTouch,
+            )
+        }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            A11yState.Default,
+        )
 
     val familyHint: StateFlow<SignatureFamilyHint?> = combine(
         selectedKey,
@@ -903,6 +924,24 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setAdaptiveFloor(floor: ScanProfile) {
         updateSettings { it.copy(adaptiveFloor = floor) }
+    }
+
+    // ---------------------------------------------------------------------
+    // FASE 5 (Bloque 1): preferencias de accesibilidad.
+    // Los Bloques 2–7 de Fase 5 consumen a11yState; los switches viven en
+    // SettingsScreen y llaman a estos setters.
+    // ---------------------------------------------------------------------
+
+    fun setA11yHighContrast(on: Boolean) {
+        updateSettings { it.copy(a11yHighContrast = on) }
+    }
+
+    fun setA11yReduceMotion(on: Boolean) {
+        updateSettings { it.copy(a11yReduceMotion = on) }
+    }
+
+    fun setA11yLargeTouch(on: Boolean) {
+        updateSettings { it.copy(a11yLargeTouch = on) }
     }
 
     /**

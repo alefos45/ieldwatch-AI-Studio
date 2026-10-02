@@ -375,17 +375,22 @@ fun SettingsScreen(
             }
             }
 
-            SectionCard("Adaptive scanning") {
+            SectionCard(if (strings.isEs) "Escaneo adaptativo" else "Adaptive scanning") {
             val ctx by vm.contextState.collectAsStateWithLifecycle()
             val effective by vm.effectiveScanProfile.collectAsStateWithLifecycle()
             var floorOpen by remember { mutableStateOf(false) }
             var addPlaceError by remember { mutableStateOf<String?>(null) }
             Text(
-                "How Fieldwatch picks the scan cadence from your context. Manual keeps the slider above exactly as set. Adaptive lowers the cadence when you are still, on battery, at Home or Work, or the screen is off — and raises it when you are moving or the screen is on.",
+                if (strings.isEs) "Cómo elige Fieldwatch la cadencia de escaneo según tu contexto. Manual usa el deslizador de arriba exactamente como está. Adaptativo baja la cadencia cuando estás quieto, con batería, en Casa o Trabajo, o la pantalla está apagada — y la sube cuando te mueves o la pantalla está encendida."
+                else "How Fieldwatch picks the scan cadence from your context. Manual keeps the slider above exactly as set. Adaptive lowers the cadence when you are still, on battery, at Home or Work, or the screen is off — and raises it when you are moving or the screen is on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text("Mode", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                if (strings.isEs) "Modo" else "Mode",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 8.dp),
+            )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -398,20 +403,26 @@ fun SettingsScreen(
                 FieldwatchFilterChip(
                     selected = settings.intensityMode == IntensityMode.ADAPTIVE,
                     onClick = { vm.setIntensityMode(IntensityMode.ADAPTIVE) },
-                    label = { Text("Adaptive") },
+                    label = { Text(if (strings.isEs) "Adaptativo" else "Adaptive") },
                 )
             }
             Text(
                 if (settings.intensityMode == IntensityMode.MANUAL) {
-                    "Manual: the Scan intensity slider above is used exactly as set."
+                    if (strings.isEs) "Manual: se usa el deslizador de Intensidad de escaneo de arriba tal cual está."
+                    else "Manual: the Scan intensity slider above is used exactly as set."
                 } else {
-                    "Adaptive: the Scan intensity slider above becomes the manual fallback; the context decides the actual profile, never below the floor."
+                    if (strings.isEs) "Adaptativo: el deslizador de arriba pasa a ser el respaldo manual; el contexto decide el perfil real, nunca por debajo del mínimo."
+                    else "Adaptive: the Scan intensity slider above becomes the manual fallback; the context decides the actual profile, never below the floor."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Text("Minimum profile", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+            Text(
+                if (strings.isEs) "Perfil mínimo" else "Minimum profile",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 12.dp),
+            )
             val floorOptions = listOf(
                 ScanProfile.SAVER,
                 ScanProfile.BALANCED,
@@ -423,14 +434,14 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             ) {
                 FieldwatchDropdownField(
-                    label = "Floor",
-                    value = scanProfileLabel(settings.adaptiveFloor),
+                    label = if (strings.isEs) "Mínimo" else "Floor",
+                    value = scanProfileLabel(settings.adaptiveFloor, strings.isEs),
                     expanded = floorOpen,
                 )
                 ExposedDropdownMenu(floorOpen, { floorOpen = false }) {
                     floorOptions.forEach { profile ->
                         DropdownMenuItem(
-                            text = { Text(scanProfileLabel(profile)) },
+                            text = { Text(scanProfileLabel(profile, strings.isEs)) },
                             onClick = {
                                 vm.setAdaptiveFloor(profile)
                                 floorOpen = false
@@ -440,15 +451,21 @@ fun SettingsScreen(
                 }
             }
             Text(
-                "Adaptive never drops below this profile. Saver is the lowest, Performance is the highest. Aggressive is only used while hunting.",
+                if (strings.isEs) "Adaptativo nunca baja de este perfil. Ahorro es el más bajo, Alto rendimiento el más alto. Agresivo solo se usa durante una búsqueda."
+                else "Adaptive never drops below this profile. Saver is the lowest, Performance is the highest. Aggressive is only used while hunting.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Text("Saved places", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+            Text(
+                if (strings.isEs) "Lugares guardados" else "Saved places",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 12.dp),
+            )
             if (settings.knownPlaces.isEmpty()) {
                 Text(
-                    "No saved places yet. Add Home or Work so Adaptive can drop to the floor when you are there.",
+                    if (strings.isEs) "Aún no hay lugares guardados. Agrega Casa o Trabajo para que Adaptativo baje al mínimo cuando estés allí."
+                    else "No saved places yet. Add Home or Work so Adaptive can drop to the floor when you are there.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -461,13 +478,16 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(place.label, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "${place.kind.label()}  ·  %.5f, %.5f".format(place.lat, place.lon),
+                                "${place.kind.localizedLabel(strings.isEs)}  ·  %.5f, %.5f".format(place.lat, place.lon),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         IconButton(onClick = { vm.removeKnownPlace(place.id) }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Remove ${place.label}")
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = if (strings.isEs) "Eliminar ${place.label}" else "Remove ${place.label}",
+                            )
                         }
                     }
                 }
@@ -479,25 +499,28 @@ fun SettingsScreen(
                 FieldwatchActionButton(
                     onClick = {
                         addPlaceError = null
-                        if (!vm.addCurrentPlaceAs(PlaceKind.HOME, "Home")) {
-                            addPlaceError = "No GPS fix yet. Wait for a lock or enable Tag detections with GPS."
+                        if (!vm.addCurrentPlaceAs(PlaceKind.HOME, if (strings.isEs) "Casa" else "Home")) {
+                            addPlaceError = if (strings.isEs) "Sin fix GPS aún. Espera una señal o activa Etiquetar detecciones con GPS."
+                            else "No GPS fix yet. Wait for a lock or enable Tag detections with GPS."
                         }
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text("Add Home") }
+                ) { Text(if (strings.isEs) "Agregar Casa" else "Add Home") }
                 FieldwatchActionButton(
                     onClick = {
                         addPlaceError = null
-                        if (!vm.addCurrentPlaceAs(PlaceKind.WORK, "Work")) {
-                            addPlaceError = "No GPS fix yet. Wait for a lock or enable Tag detections with GPS."
+                        if (!vm.addCurrentPlaceAs(PlaceKind.WORK, if (strings.isEs) "Trabajo" else "Work")) {
+                            addPlaceError = if (strings.isEs) "Sin fix GPS aún. Espera una señal o activa Etiquetar detecciones con GPS."
+                            else "No GPS fix yet. Wait for a lock or enable Tag detections with GPS."
                         }
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text("Add Work") }
+                ) { Text(if (strings.isEs) "Agregar Trabajo" else "Add Work") }
             }
             if (!settings.tagLocation) {
                 Text(
-                    "Tag detections with GPS must be on to save a place (Location section below).",
+                    if (strings.isEs) "Etiquetar detecciones con GPS debe estar activo para guardar un lugar (sección Ubicación más abajo)."
+                    else "Tag detections with GPS must be on to save a place (Location section below).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -509,17 +532,22 @@ fun SettingsScreen(
                 )
             }
 
-            Text("Current context", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
-            ContextStatusCard(ctx, effective, settings.intensityMode)
+            Text(
+                if (strings.isEs) "Contexto actual" else "Current context",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            ContextStatusCard(ctx, effective, settings.intensityMode, strings.isEs)
             }
 
-            SectionCard("Watchlist") {
+            SectionCard(if (strings.isEs) "Vigilancia" else "Watchlist") {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Watchlist alerts", Modifier.weight(1f))
+                Text(if (strings.isEs) "Alertas de vigilancia" else "Watchlist alerts", Modifier.weight(1f))
                 FieldwatchSwitch(settings.alertsEnabled, { on -> vm.updateSettings { it.copy(alertsEnabled = on) } })
             }
             Text(
-                "On by default. Master switch for bookmarked signatures and devices. Off: no beep, vibration, flash, jump, or shade card. Bookmarking still works — you just will not be told when that radio appears.",
+                if (strings.isEs) "Activado por defecto. Interruptor maestro para firmas y dispositivos marcados. Desactivado: sin pitido, vibración, destello, salto ni tarjeta de notificación. Marcar sigue funcionando — solo que no se te avisará cuando esa radio aparezca."
+                else "On by default. Master switch for bookmarked signatures and devices. Off: no beep, vibration, flash, jump, or shade card. Bookmarking still works — you just will not be told when that radio appears.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -527,14 +555,20 @@ fun SettingsScreen(
             FieldwatchActionButton(
                 onClick = onRadioBookmarks,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Named radios ($radioWatchN)") }
+            ) {
+                Text(
+                    if (strings.isEs) "Radios con nombre ($radioWatchN)"
+                    else "Named radios ($radioWatchN)",
+                )
+            }
             Text(
-                "Custom names for one MAC. Alert is optional. Filters → Named radios only shows them on Live. Signature watches stay on Signatures.",
+                if (strings.isEs) "Nombres personalizados para una MAC. La alerta es opcional. Filtros → Solo radios con nombre los muestra en En vivo. Las firmas vigiladas permanecen en Firmas."
+                else "Custom names for one MAC. Alert is optional. Filters → Named radios only shows them on Live. Signature watches stay on Signatures.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Beep on watched signature", Modifier.weight(1f))
+                Text(if (strings.isEs) "Pitido al detectar firma vigilada" else "Beep on watched signature", Modifier.weight(1f))
                 FieldwatchSwitch(
                     settings.alertBeep,
                     { on -> vm.updateSettings { it.copy(alertBeep = on) } },
@@ -542,12 +576,13 @@ fun SettingsScreen(
                 )
             }
             Text(
-                "The double pip on media volume when a bookmarked signature or device first appears, or returns after leaving. Sitting detections do not beep again. Independent of Voice — use beep, voice, or both. Raise media volume if you hear nothing, then tap Test alert.",
+                if (strings.isEs) "Doble pitido en el volumen multimedia cuando una firma o dispositivo marcado aparece por primera vez, o vuelve tras irse. Las detecciones estacionarias no vuelven a pitar. Independiente de Voz — usa pitido, voz o ambos. Sube el volumen multimedia si no oyes nada y toca Probar alerta."
+                else "The double pip on media volume when a bookmarked signature or device first appears, or returns after leaving. Sitting detections do not beep again. Independent of Voice — use beep, voice, or both. Raise media volume if you hear nothing, then tap Test alert.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Voice on watched signature", Modifier.weight(1f))
+                Text(if (strings.isEs) "Voz al detectar firma vigilada" else "Voice on watched signature", Modifier.weight(1f))
                 FieldwatchSwitch(
                     settings.alertVoice,
                     { on -> vm.updateSettings { it.copy(alertVoice = on) } },
@@ -555,23 +590,28 @@ fun SettingsScreen(
                 )
             }
             Text(
-                "On by default. Speaks on the same media volume as the pip. Independent of Beep: with Beep on, voice follows the pip; with Beep off, voice only. Not Hunt. If a phrase is already being spoken, a second hit is skipped. Phones with no text-to-speech still beep if Beep is on.",
+                if (strings.isEs) "Activado por defecto. Habla en el mismo volumen multimedia que el pitido. Independiente del Pitido: con Pitido activo, la voz sigue al pitido; con Pitido desactivado, solo voz. No afecta a Búsqueda. Si ya se está pronunciando una frase, se omite un segundo aviso. Los teléfonos sin texto-a-voz siguen pitando si el Pitido está activo."
+                else "On by default. Speaks on the same media volume as the pip. Independent of Beep: with Beep on, voice follows the pip; with Beep off, voice only. Not Hunt. If a phrase is already being spoken, a second hit is skipped. Phones with no text-to-speech still beep if Beep is on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text("What to say", style = MaterialTheme.typography.labelLarge)
+            Text(
+                if (strings.isEs) "Qué decir" else "What to say",
+                style = MaterialTheme.typography.labelLarge,
+            )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AlertVoiceWhat.entries.forEach { item ->
                     FieldwatchFilterChip(
                         selected = settings.alertVoiceWhat == item,
                         onClick = { vm.updateSettings { it.copy(alertVoiceWhat = item) } },
                         enabled = settings.alertsEnabled && settings.alertVoice,
-                        label = { Text(item.label()) },
+                        label = { Text(item.localizedLabel(strings.isEs)) },
                     )
                 }
             }
             Text(
-                "For signature watches: Class is the Live glyph bucket (finder tags, audio, …). Signature is the catalog row (Apple AirTags, Axon, …). Class + signature (default) says both. A named radio with Alert on always says its custom name, even if it has no class. Test alert plays the signature mix you have on.",
+                if (strings.isEs) "Para firmas vigiladas: Clase es el grupo del glifo en En vivo (rastreadores, audio, …). Firma es la fila del catálogo (Apple AirTags, Axon, …). Clase + firma (por defecto) dice ambas. Una radio con nombre y Alerta activa siempre dice su nombre propio, aunque no tenga clase. Probar alerta reproduce la mezcla que tengas activa."
+                else "For signature watches: Class is the Live glyph bucket (finder tags, audio, …). Signature is the catalog row (Apple AirTags, Axon, …). Class + signature (default) says both. A named radio with Alert on always says its custom name, even if it has no class. Test alert plays the signature mix you have on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -579,9 +619,9 @@ fun SettingsScreen(
                 onClick = vm::testWatchBeep,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = settings.alertsEnabled && (settings.alertBeep || settings.alertVoice),
-            ) { Text("Test alert") }
+            ) { Text(if (strings.isEs) "Probar alerta" else "Test alert") }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Jump to new watched detection", Modifier.weight(1f))
+                Text(if (strings.isEs) "Saltar a nueva detección vigilada" else "Jump to new watched detection", Modifier.weight(1f))
                 FieldwatchSwitch(
                     settings.snapToBeep,
                     { on -> vm.updateSettings { it.copy(snapToBeep = on) } },
@@ -589,12 +629,13 @@ fun SettingsScreen(
                 )
             }
             Text(
-                "When a new watched signature or device appears, Live scrolls to that row so you can see the flash. Works with beep, voice, or both. Weak hits sit at the bottom of a strength-ranked list. Turn this off if you do not want the list to move.",
+                if (strings.isEs) "Cuando una firma o dispositivo vigilado aparece, En vivo se desplaza a esa fila para que veas el destello. Funciona con pitido, voz o ambos. Las detecciones débiles quedan abajo en una lista ordenada por intensidad. Desactívalo si no quieres que la lista se mueva."
+                else "When a new watched signature or device appears, Live scrolls to that row so you can see the flash. Works with beep, voice, or both. Weak hits sit at the bottom of a strength-ranked list. Turn this off if you do not want the list to move.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("System notification", Modifier.weight(1f))
+                Text(if (strings.isEs) "Notificación del sistema" else "System notification", Modifier.weight(1f))
                 FieldwatchSwitch(
                     settings.alertShade,
                     { on -> vm.updateSettings { it.copy(alertShade = on) } },
@@ -602,64 +643,73 @@ fun SettingsScreen(
                 )
             }
             Text(
-                "Optional. Posts a silent shade card when a watched radio appears. Off by default — the beep and flash are enough, and skipping the card keeps the scan loop lighter.",
+                if (strings.isEs) "Opcional. Publica una tarjeta silenciosa cuando una radio vigilada aparece. Desactivado por defecto — el pitido y el destello son suficientes, y omitir la tarjeta mantiene el escaneo más ligero."
+                else "Optional. Posts a silent shade card when a watched radio appears. Off by default — the beep and flash are enough, and skipping the card keeps the scan loop lighter.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             }
 
-            SectionCard("Location") {
+            SectionCard(if (strings.isEs) "Ubicación" else "Location") {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Tag detections with GPS", Modifier.weight(1f))
+                Text(if (strings.isEs) "Etiquetar detecciones con GPS" else "Tag detections with GPS", Modifier.weight(1f))
                 FieldwatchSwitch(settings.tagLocation, { on -> vm.updateSettings { it.copy(tagLocation = on) } })
             }
             Text(
-                "On by default. Requests live GPS/network updates and stamps each hear (Live detail, Moving with you, " +
-                    "Debrief, and lat/lon on new log rows). Last-known-only is ignored if older than 30 s. " +
-                    "That is your GPS at hear-time, not an independent fix on the other radio. " +
-                    "Use high-accuracy Location or the path stays 0. Turn off if you do not want operator coordinates on logs. " +
-                    "Heard-here TAK pins also need this; advertised payload coordinates (Remote ID) do not.",
+                if (strings.isEs) "Activado por defecto. Solicita ubicación GPS/red en vivo y marca cada detección (detalle En vivo, En movimiento contigo, Informe y lat/lon en nuevas filas del registro). La última ubicación conocida se ignora si tiene más de 30 s. Esa es tu ubicación GPS en el momento, no un fix independiente en la otra radio. Usa Ubicación de alta precisión o la ruta quedará en 0. Desactívalo si no quieres coordenadas del operador en los registros. Los pines TAK 'escuchado aquí' también lo necesitan; las coordenadas anunciadas en el payload (Remote ID) no."
+                else "On by default. Requests live GPS/network updates and stamps each hear (Live detail, Moving with you, Debrief, and lat/lon on new log rows). Last-known-only is ignored if older than 30 s. That is your GPS at hear-time, not an independent fix on the other radio. Use high-accuracy Location or the path stays 0. Turn off if you do not want operator coordinates on logs. Heard-here TAK pins also need this; advertised payload coordinates (Remote ID) do not.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Online place names and maps", Modifier.weight(1f))
+                Text(if (strings.isEs) "Nombres de lugares y mapas en línea" else "Online place names and maps", Modifier.weight(1f))
                 FieldwatchSwitch(settings.onlineLookup, { on -> vm.updateSettings { it.copy(onlineLookup = on) } })
             }
             Text(
-                "On by default. When the phone has internet, Debrief / AI Export reverse-geocode GPS stamps " +
-                    "to street/city, and Reports → Path loads OpenStreetMap tiles under the trace. " +
-                    "No Fieldwatch cloud, no API key. Offline or no geocoder: Debrief uses coordinates only and Path stays the current north-up trace — no error dialog. " +
-                    "Turn off to keep streets and map tiles out of reports and Path. " +
-                    "Debrief, Sit export, Log export, and Reset / clear log are on the Reports tab.",
+                if (strings.isEs) "Activado por defecto. Cuando el teléfono tiene internet, Informe / Exportación IA hacen geocodificación inversa de las marcas GPS a calle/ciudad, y Informes → Trayectoria carga mosaicos de OpenStreetMap bajo el rastro. Sin nube de Fieldwatch, sin clave API. Sin conexión o sin geocodificador: el Informe usa solo coordenadas y la Trayectoria mantiene el trazado hacia el norte actual — sin diálogo de error. Desactívalo para mantener calles y mosaicos fuera de informes y Trayectoria. Informe, Exportar situación, Exportar registro y Borrar registro están en la pestaña Informes."
+                else "On by default. When the phone has internet, Debrief / AI Export reverse-geocode GPS stamps to street/city, and Reports → Path loads OpenStreetMap tiles under the trace. No Fieldwatch cloud, no API key. Offline or no geocoder: Debrief uses coordinates only and Path stays the current north-up trace — no error dialog. Turn off to keep streets and map tiles out of reports and Path. Debrief, Sit export, Log export, and Reset / clear log are on the Reports tab.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             }
 
-            SectionCard("TAK / CoT") {
+            SectionCard(if (strings.isEs) "TAK / CoT" else "TAK / CoT") {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("TAK / CoT feed", Modifier.weight(1f))
+                Text(if (strings.isEs) "Feed TAK / CoT" else "TAK / CoT feed", Modifier.weight(1f))
                 FieldwatchSwitch(settings.takEnabled, { on -> vm.updateSettings { it.copy(takEnabled = on) } })
             }
             Text(
-                "Off by default. Sends Cursor-on-Target UDP markers to ATAK, WinTAK, or iTAK. " +
-                    "This phone (${TakDefaults.LOOPBACK}:${TakDefaults.PORT}) is ATAK CIV on this handset. " +
-                    "LAN multicast is ${TakDefaults.SA_HOST}:${TakDefaults.SA_PORT}. " +
-                    "Custom is a unicast IPv4 or hostname. UDP only — a TAK server’s TCP 8087 is not this feed. " +
-                    "Heard-here pins sit at this phone’s GPS at the loudest hear (closest approach) and are labeled (here). " +
-                    "Walking away does not drag the pin; a louder hear moves it. Keep-alives refresh the same lat/lon every ~10 s so ATAK does not drop it. " +
-                    "Advertised lat/lon (stock Remote ID) sit on the aircraft; the same Remote ID " +
-                    "keeps one marker that moves (UAS ID, not the rotating BLE MAC). " +
-                    "A decoded pilot location is a second pin. Gone radios are dropped on ATAK instead of sitting 120 s. " +
-                    "Tap a marker in ATAK for remarks (name, MAC, RSSI, signatures). " +
-                    "Not direction-finding. Not a Remote ID plugin. Privacy mode pauses the feed.",
+                if (strings.isEs) {
+                    "Desactivado por defecto. Envía marcadores Cursor-on-Target por UDP a ATAK, WinTAK o iTAK. " +
+                        "Este teléfono (${TakDefaults.LOOPBACK}:${TakDefaults.PORT}) es ATAK CIV en este dispositivo. " +
+                        "El multicast en LAN es ${TakDefaults.SA_HOST}:${TakDefaults.SA_PORT}. " +
+                        "Personalizado es una IPv4 o nombre de host unicast. Solo UDP — el TCP 8087 de un servidor TAK no es este feed. " +
+                        "Los pines 'escuchado aquí' se ubican en el GPS de este teléfono en la detección más fuerte (aproximación más cercana) y se etiquetan (aquí). " +
+                        "Alejarse no arrastra el pin; una detección más fuerte lo mueve. Los keep-alive refrescan el mismo lat/lon cada ~10 s para que ATAK no lo descarte. " +
+                        "Lat/lon anunciados (Remote ID stock) se sitúan en la aeronave; el mismo Remote ID mantiene un marcador que se mueve (UAS ID, no la MAC BLE rotativa). " +
+                        "Una ubicación de piloto decodificada es un segundo pin. Las radios desaparecidas se descartan en ATAK en lugar de permanecer 120 s. " +
+                        "Toca un marcador en ATAK para ver las notas (nombre, MAC, RSSI, firmas). " +
+                        "No es radiogoniometría. No es un plugin de Remote ID. El modo de privacidad pausa el feed."
+                } else {
+                    "Off by default. Sends Cursor-on-Target UDP markers to ATAK, WinTAK, or iTAK. " +
+                        "This phone (${TakDefaults.LOOPBACK}:${TakDefaults.PORT}) is ATAK CIV on this handset. " +
+                        "LAN multicast is ${TakDefaults.SA_HOST}:${TakDefaults.SA_PORT}. " +
+                        "Custom is a unicast IPv4 or hostname. UDP only — a TAK server’s TCP 8087 is not this feed. " +
+                        "Heard-here pins sit at this phone’s GPS at the loudest hear (closest approach) and are labeled (here). " +
+                        "Walking away does not drag the pin; a louder hear moves it. Keep-alives refresh the same lat/lon every ~10 s so ATAK does not drop it. " +
+                        "Advertised lat/lon (stock Remote ID) sit on the aircraft; the same Remote ID " +
+                        "keeps one marker that moves (UAS ID, not the rotating BLE MAC). " +
+                        "A decoded pilot location is a second pin. Gone radios are dropped on ATAK instead of sitting 120 s. " +
+                        "Tap a marker in ATAK for remarks (name, MAC, RSSI, signatures). " +
+                        "Not direction-finding. Not a Remote ID plugin. Privacy mode pauses the feed."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (settings.takEnabled && settings.demoMode) {
                 Text(
-                    "Privacy mode is on — the feed is paused so full MACs and coordinates are not sent. Turn Privacy mode off to publish.",
+                    if (strings.isEs) "El modo de privacidad está activo — el feed está en pausa para no enviar MACs completas ni coordenadas. Desactiva el Modo de privacidad para publicar."
+                    else "Privacy mode is on — the feed is paused so full MACs and coordinates are not sent. Turn Privacy mode off to publish.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -669,22 +719,25 @@ fun SettingsScreen(
             }
             }
 
-            SectionCard("Logging") {
+            SectionCard(if (strings.isEs) "Registro" else "Logging") {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Write detections to disk", Modifier.weight(1f))
+                Text(if (strings.isEs) "Escribir detecciones en disco" else "Write detections to disk", Modifier.weight(1f))
                 FieldwatchSwitch(settings.loggingEnabled, { on -> vm.updateSettings { it.copy(loggingEnabled = on) } })
             }
             StableCaption(
                 if (settings.loggingEnabled) {
-                    "Logging is on. New detections are appended to the rotating file."
+                    if (strings.isEs) "El registro está activo. Las nuevas detecciones se añaden al archivo rotativo."
+                    else "Logging is on. New detections are appended to the rotating file."
                 } else {
-                    "Logging is off. Scanning still runs; nothing new is written until you turn this back on."
+                    if (strings.isEs) "El registro está desactivado. El escaneo sigue funcionando; no se escribirá nada nuevo hasta que lo reactives."
+                    else "Logging is off. Scanning still runs; nothing new is written until you turn this back on."
                 },
                 "Logging is on. New detections are appended to the rotating file.",
                 "Logging is off. Scanning still runs; nothing new is written until you turn this back on.",
             )
             Text(
-                "The rotating file is JSON lines (one hear per line). Reports → Log → Format writes CSV, JSON lines, GPX, KML, or WiGLE when you Share or Save.",
+                if (strings.isEs) "El archivo rotativo es JSON por líneas (una detección por línea). Informes → Registro → Formato escribe CSV, JSON por líneas, GPX, KML o WiGLE al Compartir o Guardar."
+                else "The rotating file is JSON lines (one hear per line). Reports → Log → Format writes CSV, JSON lines, GPX, KML, or WiGLE when you Share or Save.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -693,7 +746,7 @@ fun SettingsScreen(
             LaunchedEffect(settings.logRotateKb) {
                 if (!rotateDragging) rotateDrag = settings.logRotateKb
             }
-            Text("Rotate at $rotateDrag KB")
+            Text(if (strings.isEs) "Rotar a $rotateDrag KB" else "Rotate at $rotateDrag KB")
             FieldwatchSlider(
                 value = rotateDrag.toFloat(),
                 onValueChange = {
@@ -711,7 +764,7 @@ fun SettingsScreen(
             LaunchedEffect(settings.staleSec) {
                 if (!staleDragging) staleDrag = settings.staleSec
             }
-            Text("Stale after ${staleDrag}s")
+            Text(if (strings.isEs) "Caducar tras ${staleDrag}s" else "Stale after ${staleDrag}s")
             FieldwatchSlider(
                 value = staleDrag.toFloat(),
                 onValueChange = {
@@ -726,77 +779,82 @@ fun SettingsScreen(
             )
             StickyHeight("log-stats") {
                 Text(
-                    "${state.logLines} lines this session  ·  ${vm.logBytes() / 1024} KB on disk. " +
-                        "Share, Save, and Reset / clear log are on the Reports tab.",
+                    if (strings.isEs) {
+                        "${state.logLines} líneas esta sesión  ·  ${vm.logBytes() / 1024} KB en disco. " +
+                            "Compartir, Guardar y Borrar registro están en la pestaña Informes."
+                    } else {
+                        "${state.logLines} lines this session  ·  ${vm.logBytes() / 1024} KB on disk. " +
+                            "Share, Save, and Reset / clear log are on the Reports tab."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             }
 
-            SectionCard("Signatures") {
+            SectionCard(if (strings.isEs) "Firmas" else "Signatures") {
             Text(
-                "Export the catalog (stock plus any you added or edited) to share with another Fieldwatch or as a backup. Import adds new rows and extra rules; it does not delete anything. Same id or the same match rules are skipped so a pack can be imported twice. Update stock catalog from GitHub replaces stock rows (including Extra attention) from the v2 pack on the repo; bookmarks, Settings, and signatures you added stay. Needs internet. Offline: Import signatures from a file. Restore defaults below still wipes customs.",
+                if (strings.isEs) "Exporta el catálogo (stock más los que hayas añadido o editado) para compartir con otro Fieldwatch o como respaldo. Importar añade filas nuevas y reglas adicionales; no borra nada. El mismo id o las mismas reglas de coincidencia se omiten, así que un paquete puede importarse dos veces. Actualizar catálogo desde GitHub reemplaza las filas stock (incluida Atención especial) con el paquete v2 del repositorio; marcadores, Ajustes y firmas que hayas añadido se mantienen. Requiere internet. Sin conexión: Importar firmas desde un archivo. Restaurar predeterminados abajo borra las personalizadas."
+                else "Export the catalog (stock plus any you added or edited) to share with another Fieldwatch or as a backup. Import adds new rows and extra rules; it does not delete anything. Same id or the same match rules are skipped so a pack can be imported twice. Update stock catalog from GitHub replaces stock rows (including Extra attention) from the v2 pack on the repo; bookmarks, Settings, and signatures you added stay. Needs internet. Offline: Import signatures from a file. Restore defaults below still wipes customs.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             FieldwatchActionButton(
                 onClick = vm::startSignatureShare,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Export signatures") }
+            ) { Text(if (strings.isEs) "Exportar firmas" else "Export signatures") }
             FieldwatchActionButton(
                 onClick = { saveSignatures.launch(vm.suggestedSignaturesName()) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Save signatures to SD card / storage…") }
+            ) { Text(if (strings.isEs) "Guardar firmas en tarjeta SD / almacenamiento…" else "Save signatures to SD card / storage…") }
             FieldwatchActionButton(
                 onClick = {
                     importSignatures.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Import signatures…") }
+            ) { Text(if (strings.isEs) "Importar firmas…" else "Import signatures…") }
             FieldwatchActionButton(
                 onClick = vm::updateStockCatalogFromGitHub,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Update stock catalog from GitHub") }
+            ) { Text(if (strings.isEs) "Actualizar catálogo desde GitHub" else "Update stock catalog from GitHub") }
 
             FieldwatchActionButton(
                 onClick = { confirmRestore = true },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Restore default signatures & presets")
+                Text(if (strings.isEs) "Restaurar firmas y preajustes predeterminados" else "Restore default signatures & presets")
             }
             }
 
-            SectionCard("Settings backup") {
+            SectionCard(if (strings.isEs) "Copia de ajustes" else "Settings backup") {
             Text(
-                "Settings switches, the current filter, filter presets, named radios, and signature watches. " +
-                    "Not the catalog — that is Export signatures. Not logs or GPS. " +
-                    "Import replaces those on this phone; the catalog stays. " +
-                    "Use this after a factory reset or on a new phone.",
+                if (strings.isEs) "Interruptores de ajustes, el filtro actual, preajustes de filtro, radios con nombre y firmas vigiladas. No el catálogo — eso es Exportar firmas. Tampoco registros ni GPS. Importar reemplaza esos en este teléfono; el catálogo se mantiene. Úsalo tras un restablecimiento de fábrica o en un teléfono nuevo."
+                else "Settings switches, the current filter, filter presets, named radios, and signature watches. Not the catalog — that is Export signatures. Not logs or GPS. Import replaces those on this phone; the catalog stays. Use this after a factory reset or on a new phone.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             FieldwatchActionButton(
                 onClick = vm::startSettingsShare,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Export settings") }
+            ) { Text(if (strings.isEs) "Exportar ajustes" else "Export settings") }
             FieldwatchActionButton(
                 onClick = { saveSettings.launch(vm.suggestedSettingsName()) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Save settings to SD card / storage…") }
+            ) { Text(if (strings.isEs) "Guardar ajustes en tarjeta SD / almacenamiento…" else "Save settings to SD card / storage…") }
             FieldwatchActionButton(
                 onClick = {
                     importSettings.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Import settings…") }
+            ) { Text(if (strings.isEs) "Importar ajustes…" else "Import settings…") }
             }
 
             FieldwatchActionButton(
                 onClick = onShowLiveTour,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Show Live tour") }
+            ) { Text(if (strings.isEs) "Mostrar tutorial de En vivo" else "Show Live tour") }
             Text(
-                "Chrome overlay on Live: Tune is Display (Radar, list, By class), Pause, Filters, Signatures, Reports, Settings. First-run after the license; this button shows it again.",
+                if (strings.isEs) "Superposición sobre En vivo: Ajustar es Visualización (Radar, lista, Por clase), Pausar, Filtros, Firmas, Informes, Ajustes. Aparece tras la licencia; este botón lo muestra de nuevo."
+                else "Chrome overlay on Live: Tune is Display (Radar, list, By class), Pause, Filters, Signatures, Reports, Settings. First-run after the license; this button shows it again.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -807,8 +865,8 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "Passive Wi-Fi + BLE only. " +
-                    "Stock Android cannot promiscuously capture Wi-Fi stations; access points and BLE advertisers are what the radios expose.",
+                if (strings.isEs) "Solo Wi-Fi + BLE pasivo. Android stock no puede capturar estaciones Wi-Fi de forma promiscua; los puntos de acceso y anunciantes BLE son lo que las radios exponen."
+                else "Passive Wi-Fi + BLE only. Stock Android cannot promiscuously capture Wi-Fi stations; access points and BLE advertisers are what the radios expose.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -823,9 +881,11 @@ fun SettingsScreen(
             }
             Text(
                 if (ipv4.isEmpty()) {
-                    "This phone’s IPv4  ·  none"
+                    if (strings.isEs) "IPv4 de este teléfono  ·  ninguna"
+                    else "This phone’s IPv4  ·  none"
                 } else {
-                    "This phone’s IPv4  ·  ${ipv4.joinToString("  ·  ")}"
+                    if (strings.isEs) "IPv4 de este teléfono  ·  ${ipv4.joinToString("  ·  ")}"
+                    else "This phone’s IPv4  ·  ${ipv4.joinToString("  ·  ")}"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -838,13 +898,11 @@ fun SettingsScreen(
     if (confirmRestore) {
         AlertDialog(
             onDismissRequest = { confirmRestore = false },
-            title = { Text("Restore defaults?") },
+            title = { Text(if (strings.isEs) "¿Restaurar valores predeterminados?" else "Restore defaults?") },
             text = {
                 Text(
-                    "Rewrites the catalog (stock rows, class colors, Decode fields), stock bookmarks, " +
-                        "stock filter chips, and default Settings switches. Custom signatures and chips you " +
-                        "saved are wiped. Export signatures and Export settings first if you want a backup. " +
-                        "This cannot be undone.",
+                    if (strings.isEs) "Reescribe el catálogo (filas stock, colores de clase, campos Decode), marcadores stock, chips de filtro stock y ajustes predeterminados. Las firmas y chips personalizados que hayas guardado se borran. Exporta firmas y Exporta ajustes primero si quieres un respaldo. Esto no se puede deshacer."
+                    else "Rewrites the catalog (stock rows, class colors, Decode fields), stock bookmarks, stock filter chips, and default Settings switches. Custom signatures and chips you saved are wiped. Export signatures and Export settings first if you want a backup. This cannot be undone.",
                 )
             },
             confirmButton = {
@@ -853,10 +911,10 @@ fun SettingsScreen(
                         confirmRestore = false
                         vm.restoreDefaults()
                     },
-                ) { Text("Restore") }
+                ) { Text(if (strings.isEs) "Restaurar" else "Restore") }
             },
             dismissButton = {
-                TextButton(onClick = { confirmRestore = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmRestore = false }) { Text(strings.cancel) }
             },
         )
     }
@@ -864,11 +922,11 @@ fun SettingsScreen(
 
 // FASE 4 (Bloque 4): helpers para la sección Adaptive scanning.
 
-private fun scanProfileLabel(profile: ScanProfile): String = when (profile) {
-    ScanProfile.SAVER -> "Saver"
-    ScanProfile.BALANCED -> "Balanced"
-    ScanProfile.PERFORMANCE -> "Performance"
-    ScanProfile.AGGRESSIVE -> "Aggressive (hunting)"
+private fun scanProfileLabel(profile: ScanProfile, isEs: Boolean): String = when (profile) {
+    ScanProfile.SAVER -> if (isEs) "Ahorro" else "Saver"
+    ScanProfile.BALANCED -> if (isEs) "Equilibrado" else "Balanced"
+    ScanProfile.PERFORMANCE -> if (isEs) "Alto rendimiento" else "Performance"
+    ScanProfile.AGGRESSIVE -> if (isEs) "Agresivo (búsqueda)" else "Aggressive (hunting)"
 }
 
 @Composable
@@ -876,6 +934,7 @@ private fun ContextStatusCard(
     ctx: ContextState,
     effective: ScanProfile,
     mode: IntensityMode,
+    isEs: Boolean,
 ) {
     Column(
         modifier = Modifier
@@ -883,17 +942,27 @@ private fun ContextStatusCard(
             .padding(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        ContextRow("Activity", "${ctx.activity.label()} (${ctx.activityConfidence}%)")
-        ContextRow("Place", ctx.place.label())
-        ContextRow("Screen", if (ctx.screenOn) "On" else "Off")
         ContextRow(
-            "Battery",
-            "${ctx.batteryLevel}%" + if (ctx.batteryCharging) "  ·  charging" else "",
+            if (isEs) "Actividad" else "Activity",
+            "${ctx.activity.localizedLabel(isEs)} (${ctx.activityConfidence}%)",
         )
         ContextRow(
-            "Effective profile",
-            scanProfileLabel(effective) +
-                if (mode == IntensityMode.MANUAL) "  ·  Manual" else "  ·  Adaptive",
+            if (isEs) "Lugar" else "Place",
+            ctx.place.localizedLabel(isEs),
+        )
+        ContextRow(
+            if (isEs) "Pantalla" else "Screen",
+            if (ctx.screenOn) (if (isEs) "Encendida" else "On") else (if (isEs) "Apagada" else "Off"),
+        )
+        ContextRow(
+            if (isEs) "Batería" else "Battery",
+            "${ctx.batteryLevel}%" + if (ctx.batteryCharging) (if (isEs) "  ·  cargando" else "  ·  charging") else "",
+        )
+        ContextRow(
+            if (isEs) "Perfil efectivo" else "Effective profile",
+            scanProfileLabel(effective, isEs) +
+                if (mode == IntensityMode.MANUAL) (if (isEs) "  ·  Manual" else "  ·  Manual")
+                else (if (isEs) "  ·  Adaptativo" else "  ·  Adaptive"),
         )
     }
 }
@@ -981,13 +1050,14 @@ private fun SocialChip(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, status: TakFeedStatus) {
+    val strings = LocalAppStrings.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     var hostText by remember { mutableStateOf(settings.takHost) }
     var portText by remember { mutableStateOf(settings.takPort.toString()) }
     LaunchedEffect(settings.takHost) { hostText = settings.takHost }
     LaunchedEffect(settings.takPort) { portText = settings.takPort.toString() }
     val preset = TakPublish.udpPreset(settings.takHost, settings.takPort)
-    Text("Destination", style = MaterialTheme.typography.labelLarge)
+    Text(if (strings.isEs) "Destino" else "Destination", style = MaterialTheme.typography.labelLarge)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FieldwatchFilterChip(
             selected = preset == TakUdpPreset.THIS_PHONE,
@@ -996,7 +1066,7 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
                 vm.updateSettings { it.copy(takHost = host, takPort = port) }
             },
             enabled = !settings.demoMode,
-            label = { Text("This phone") },
+            label = { Text(if (strings.isEs) "Este teléfono" else "This phone") },
         )
         FieldwatchFilterChip(
             selected = preset == TakUdpPreset.LAN_MULTICAST,
@@ -1005,7 +1075,7 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
                 vm.updateSettings { it.copy(takHost = host, takPort = port) }
             },
             enabled = !settings.demoMode,
-            label = { Text("LAN multicast") },
+            label = { Text(if (strings.isEs) "Multicast LAN" else "LAN multicast") },
         )
         FieldwatchFilterChip(
             selected = preset == TakUdpPreset.CUSTOM,
@@ -1016,14 +1086,21 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
                 }
             },
             enabled = !settings.demoMode,
-            label = { Text("Custom") },
+            label = { Text(if (strings.isEs) "Personalizado" else "Custom") },
         )
     }
     Text(
-        "This phone: ${TakDefaults.LOOPBACK}:${TakDefaults.PORT} (ATAK CIV on this handset). " +
-            "LAN multicast: ${TakDefaults.SA_HOST}:${TakDefaults.SA_PORT} (other ATAKs on this Wi-Fi). " +
-            "Custom: type a unicast IPv4 or hostname. UDP only. A TAK server’s TCP 8087 is not this feed. " +
-            "If This phone does not plot, use Custom with this phone’s Wi-Fi IPv4 from the footer and port ${TakDefaults.PORT}.",
+        if (strings.isEs) {
+            "Este teléfono: ${TakDefaults.LOOPBACK}:${TakDefaults.PORT} (ATAK CIV en este dispositivo). " +
+                "Multicast LAN: ${TakDefaults.SA_HOST}:${TakDefaults.SA_PORT} (otros ATAK en esta Wi-Fi). " +
+                "Personalizado: escribe una IPv4 unicast o nombre de host. Solo UDP. El TCP 8087 de un servidor TAK no es este feed. " +
+                "Si Este teléfono no se plotea, usa Personalizado con la IPv4 Wi-Fi de este teléfono (pie de página) y el puerto ${TakDefaults.PORT}."
+        } else {
+            "This phone: ${TakDefaults.LOOPBACK}:${TakDefaults.PORT} (ATAK CIV on this handset). " +
+                "LAN multicast: ${TakDefaults.SA_HOST}:${TakDefaults.SA_PORT} (other ATAKs on this Wi-Fi). " +
+                "Custom: type a unicast IPv4 or hostname. UDP only. A TAK server’s TCP 8087 is not this feed. " +
+                "If This phone does not plot, use Custom with this phone’s Wi-Fi IPv4 from the footer and port ${TakDefaults.PORT}."
+        },
         style = MaterialTheme.typography.bodySmall,
         color = muted,
     )
@@ -1036,7 +1113,7 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
                 vm.updateSettings { it.copy(takHost = trimmed) }
             }
         },
-        label = "Host",
+        label = if (strings.isEs) "Host" else "Host",
         placeholder = TakDefaults.HOST,
         enabled = !settings.demoMode,
     )
@@ -1051,72 +1128,97 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
                 }
             }
         },
-        label = "Port",
+        label = if (strings.isEs) "Puerto" else "Port",
         placeholder = TakDefaults.PORT.toString(),
-        supportingText = "UDP. ATAK CIV ${TakDefaults.PORT}. SA multicast ${TakDefaults.SA_PORT}. Not TCP 8087.",
+        supportingText = if (strings.isEs) {
+            "UDP. ATAK CIV ${TakDefaults.PORT}. Multicast SA ${TakDefaults.SA_PORT}. No es TCP 8087."
+        } else {
+            "UDP. ATAK CIV ${TakDefaults.PORT}. SA multicast ${TakDefaults.SA_PORT}. Not TCP 8087."
+        },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         enabled = !settings.demoMode,
     )
-    Text(takStatusLine(status), style = MaterialTheme.typography.bodySmall, color = muted)
-    Text("What to send", style = MaterialTheme.typography.labelLarge)
+    Text(takStatusLine(status, strings.isEs), style = MaterialTheme.typography.bodySmall, color = muted)
+    Text(if (strings.isEs) "Qué enviar" else "What to send", style = MaterialTheme.typography.labelLarge)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FieldwatchFilterChip(
             selected = settings.takAttention,
             onClick = { vm.updateSettings { it.copy(takAttention = !it.takAttention) } },
             enabled = !settings.demoMode,
-            label = { Text("Extra attention") },
+            label = { Text(if (strings.isEs) "Atención especial" else "Extra attention") },
         )
         FieldwatchFilterChip(
             selected = settings.takPayloadFix,
             onClick = { vm.updateSettings { it.copy(takPayloadFix = !it.takPayloadFix) } },
             enabled = !settings.demoMode,
-            label = { Text("Payload location") },
+            label = { Text(if (strings.isEs) "Ubicación del payload" else "Payload location") },
         )
         FieldwatchFilterChip(
             selected = settings.takWatchlist,
             onClick = { vm.updateSettings { it.copy(takWatchlist = !it.takWatchlist) } },
             enabled = !settings.demoMode,
-            label = { Text("Watchlist") },
+            label = { Text(if (strings.isEs) "Vigilancia" else "Watchlist") },
         )
         FieldwatchFilterChip(
             selected = settings.takAllSignatures,
             onClick = { vm.updateSettings { it.copy(takAllSignatures = !it.takAllSignatures) } },
             enabled = !settings.demoMode,
-            label = { Text("All signatures") },
+            label = { Text(if (strings.isEs) "Todas las firmas" else "All signatures") },
         )
     }
     Text(
-        "Independent chips. Extra attention (on): body-cam, glasses, recording wearables, pentest, public-safety APs. " +
-            "Payload location (on): advertised lat/lon from a decode map — required for stock Remote ID, which has no Extra attention mark. " +
-            "Watchlist (off): bookmarked signatures and named radios with Alert on. " +
-            "All signatures (off): every labeled radio — noisy in a plaza. Unmatched radios never go. " +
-            "A pin still needs coordinates: advertised payload, or GPS tagging with a live fix. " +
-            "Heard-here holds the loudest hear, not the last, and callsigns end in (here). " +
-            "Remote ID keeps one aircraft marker (UAS ID) plus a pilot pin when that location decoded.",
+        if (strings.isEs) {
+            "Chips independientes. Atención especial (activo): body-cam, gafas, wearables que graban, pentest, APs de seguridad pública. " +
+                "Ubicación del payload (activo): lat/lon anunciados desde un mapa de decodificación — requerido para Remote ID stock, que no lleva marca de Atención especial. " +
+                "Vigilancia (desactivado): firmas marcadas y radios con nombre con Alerta activa. " +
+                "Todas las firmas (desactivado): toda radio etiquetada — ruidoso en una plaza. Las radios sin coincidencia nunca se envían. " +
+                "Un pin aún necesita coordenadas: payload anunciado, o etiquetado GPS con fix en vivo. " +
+                "Escuchado aquí mantiene la detección más fuerte, no la última, y las etiquetas terminan en (aquí). " +
+                "Remote ID mantiene un marcador de aeronave (UAS ID) más un pin del piloto cuando esa ubicación se decodifica."
+        } else {
+            "Independent chips. Extra attention (on): body-cam, glasses, recording wearables, pentest, public-safety APs. " +
+                "Payload location (on): advertised lat/lon from a decode map — required for stock Remote ID, which has no Extra attention mark. " +
+                "Watchlist (off): bookmarked signatures and named radios with Alert on. " +
+                "All signatures (off): every labeled radio — noisy in a plaza. Unmatched radios never go. " +
+                "A pin still needs coordinates: advertised payload, or GPS tagging with a live fix. " +
+                "Heard-here holds the loudest hear, not the last, and callsigns end in (here). " +
+                "Remote ID keeps one aircraft marker (UAS ID) plus a pilot pin when that location decoded."
+        },
         style = MaterialTheme.typography.bodySmall,
         color = muted,
     )
 }
 
-private fun takStatusLine(status: TakFeedStatus): String {
-    if (status.paused) return "Feed status  ·  paused (Privacy mode)"
+private fun takStatusLine(status: TakFeedStatus, isEs: Boolean): String {
+    if (status.paused) {
+        return if (isEs) "Estado del feed  ·  en pausa (Modo de privacidad)"
+        else "Feed status  ·  paused (Privacy mode)"
+    }
     if (status.error != null) {
         val whenAt = takStatusWhen(status.at)
-        return "Feed status  ·  error: ${status.error}" + if (whenAt.isNotEmpty()) "  ·  $whenAt" else ""
+        val prefix = if (isEs) "Estado del feed  ·  error: ${status.error}"
+        else "Feed status  ·  error: ${status.error}"
+        return prefix + if (whenAt.isNotEmpty()) "  ·  $whenAt" else ""
     }
     if (status.at <= 0L) {
-        return "Feed status  ·  no send yet this session"
+        return if (isEs) "Estado del feed  ·  sin envíos esta sesión"
+        else "Feed status  ·  no send yet this session"
     }
     val bits = ArrayList<String>(5)
-    bits += "on the feed ${status.onFeed}"
-    bits += "sent ${status.sent}"
+    bits += if (isEs) "en el feed ${status.onFeed}" else "on the feed ${status.onFeed}"
+    bits += if (isEs) "enviados ${status.sent}" else "sent ${status.sent}"
     if (status.gone > 0) {
-        bits += if (status.gone == 1) "1 gone" else "${status.gone} gone"
+        bits += if (isEs) {
+            if (status.gone == 1) "1 desaparecida" else "${status.gone} desaparecidas"
+        } else {
+            if (status.gone == 1) "1 gone" else "${status.gone} gone"
+        }
     }
     if (status.dest.isNotBlank()) bits += status.dest
     val whenAt = takStatusWhen(status.at)
     if (whenAt.isNotEmpty()) bits += whenAt
-    val head = "Feed status  ·  ${bits.joinToString("  ·  ")}"
+    val head = if (isEs) "Estado del feed  ·  ${bits.joinToString("  ·  ")}"
+    else "Feed status  ·  ${bits.joinToString("  ·  ")}"
     return if (status.detail.isNotBlank() && status.sent == 0 && status.gone == 0) {
         "$head  ·  ${status.detail}"
     } else {

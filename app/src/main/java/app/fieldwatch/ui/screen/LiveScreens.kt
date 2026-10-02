@@ -199,7 +199,7 @@ fun LivePane(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Sit · ${openSit.name} · $dur · ${state.sit.radioCount} " + (if (strings.isEs) "radios" else "radios") + cap,
+                    "Sit · ${openSit.name} · $dur · ${state.sit.radioCount} radios$cap",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
