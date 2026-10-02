@@ -17,6 +17,15 @@ enum class ActivityKind {
         UNKNOWN -> "Unknown"
     }
 
+    fun localizedLabel(isEs: Boolean): String = if (!isEs) label() else when (this) {
+        STILL -> "Quieto"
+        WALKING -> "Caminando"
+        RUNNING -> "Corriendo"
+        ON_BICYCLE -> "En bicicleta"
+        IN_VEHICLE -> "En vehículo"
+        UNKNOWN -> "Desconocido"
+    }
+
     val moving: Boolean
         get() = this == WALKING || this == RUNNING || this == ON_BICYCLE || this == IN_VEHICLE
 }
@@ -32,6 +41,13 @@ enum class PlaceKind {
         WORK -> "Work"
         OTHER -> "Saved place"
         UNKNOWN -> "Unknown"
+    }
+
+    fun localizedLabel(isEs: Boolean): String = if (!isEs) label() else when (this) {
+        HOME -> "Casa"
+        WORK -> "Trabajo"
+        OTHER -> "Lugar guardado"
+        UNKNOWN -> "Desconocido"
     }
 }
 

@@ -23,10 +23,6 @@ object RadioPermissions {
             list += Manifest.permission.NEARBY_WIFI_DEVICES
             list += Manifest.permission.POST_NOTIFICATIONS
         }
-        // FASE 4: step detector para Adaptive scanning. Runtime desde API 29.
-        if (Build.VERSION.SDK_INT >= 29) {
-            list += Manifest.permission.ACTIVITY_RECOGNITION
-        }
         return list.toTypedArray()
     }
 

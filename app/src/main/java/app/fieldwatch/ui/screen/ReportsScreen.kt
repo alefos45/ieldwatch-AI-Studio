@@ -614,25 +614,25 @@ fun ReportsScreen(
                     onClick = vm::startExportTrainingData,
                     enabled = !exporting && total > 0,
                     modifier = Modifier.weight(1f),
-                ) { Text("Export dataset") }
+                ) { Text(if (strings.isEs) "Exportar conjunto" else "Export dataset") }
                 FieldwatchActionButton(
                     onClick = { confirmClearTraining = true },
                     enabled = !exporting && total > 0,
                     modifier = Modifier.weight(1f),
-                ) { Text("Clear") }
+                ) { Text(if (strings.isEs) "Borrar" else "Clear") }
             }
             if (confirmClearTraining) {
                 AlertDialog(
                     onDismissRequest = { confirmClearTraining = false },
-                    title = { Text("Clear training data?") },
+                    title = { Text(if (strings.isEs) "¿Borrar datos de entrenamiento?" else "Clear training data?") },
                     text = {
-                        Text("Deletes all collected feature samples from this phone. This cannot be undone. Export first if you want a backup.")
+                        Text(if (strings.isEs) "Elimina todas las muestras recopiladas en este teléfono. No se puede deshacer. Exporta primero si deseas una copia de seguridad." else "Deletes all collected feature samples from this phone. This cannot be undone. Export first if you want a backup.")
                     },
                     confirmButton = {
                         TextButton(onClick = {
                             confirmClearTraining = false
                             vm.clearTrainingData()
-                        }) { Text("Clear") }
+                        }) { Text(if (strings.isEs) "Borrar" else "Clear") }
                     },
                     dismissButton = {
                         TextButton(onClick = { confirmClearTraining = false }) { Text(strings.cancel) }

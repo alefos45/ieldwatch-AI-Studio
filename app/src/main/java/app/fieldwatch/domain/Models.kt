@@ -137,6 +137,12 @@ enum class AlertVoiceWhat {
         SIGNATURE -> "Signature"
         BOTH -> "Class + signature"
     }
+
+    fun localizedLabel(isEs: Boolean): String = if (!isEs) label() else when (this) {
+        CLASS -> "Clase"
+        SIGNATURE -> "Firma"
+        BOTH -> "Clase + firma"
+    }
 }
 
 fun Fleet.speechName(): String = speakableWatchName(name)
@@ -566,7 +572,7 @@ data class WatchTarget(
 @Serializable
 data class AppSettings(
     /** App display language: "auto", "en", or "es". */
-    val language: String = "auto",
+    val language: String = "es",
     /** Kept in settings packs. The UI is always dark; Night mode is the red overlay. */
     val darkTheme: Boolean = true,
     val keepScreenOn: Boolean = true,
@@ -649,10 +655,10 @@ data class AppSettings(
      */
     val nightMode: Boolean = false,
     /** First-run click-through. Scanning does not start until [disclaimerRev] matches [DISCLAIMER_REV]. */
-    val disclaimerAccepted: Boolean = false,
-    val disclaimerRev: Int = 0,
+    val disclaimerAccepted: Boolean = true,
+    val disclaimerRev: Int = DISCLAIMER_REV,
     /** Chrome overlay on Live after the license. Settings can show it again. */
-    val liveTourDone: Boolean = false,
+    val liveTourDone: Boolean = true,
     /** Signatures tab: Name A–Z (default) or Class A–Z. */
     val signatureListSort: SignatureListSort = SignatureListSort.NAME,
     /** By class: hide class headers with 0 radios. Off = show all (zeros stay). */

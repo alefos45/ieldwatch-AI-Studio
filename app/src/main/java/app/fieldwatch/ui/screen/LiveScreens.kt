@@ -42,6 +42,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import app.fieldwatch.domain.Sit
+import app.fieldwatch.ui.i18n.LocalAppStrings
+import app.fieldwatch.ui.i18n.localizedLabel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -118,6 +120,7 @@ fun LivePane(
     vm: FieldwatchViewModel,
     onOpen: (Sighting) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val live = state.filtered
     val sort = state.settings.strengthSort
     val pinEnd = state.settings.listSort == ListSort.ARRIVAL
@@ -136,7 +139,8 @@ fun LivePane(
     Column(Modifier.fillMaxSize()) {
         if (state.displayPaused) {
             Text(
-                "Display paused · radios still scanning and logging. Filters still apply when you run again. Tap Live to run the list again.",
+                if (strings.isEs) "Pantalla en pausa · las radios continúan escaneando y registrando. Los filtros siguen activos al reanudar. Toca En vivo para volver a ejecutar la lista."
+                else "Display paused · radios still scanning and logging. Filters still apply when you run again. Tap Live to run the list again.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -145,9 +149,9 @@ fun LivePane(
         if (state.filter.arrivalsOnly) {
             Text(
                 when {
-                    state.arrivalsLearning -> "New only · learning sitting Wi-Fi"
-                    state.hiddenKnown > 0 -> "New only · ${state.hiddenKnown} hidden"
-                    else -> "New only"
+                    state.arrivalsLearning -> if (strings.isEs) "Solo nuevos · aprendiendo Wi-Fi del entorno" else "New only · learning sitting Wi-Fi"
+                    state.hiddenKnown > 0 -> if (strings.isEs) "Solo nuevos · ${state.hiddenKnown} ocultos" else "New only · ${state.hiddenKnown} hidden"
+                    else -> if (strings.isEs) "Solo nuevos" else "New only"
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -156,7 +160,8 @@ fun LivePane(
         }
         if (state.filter.movingWithYou) {
             Text(
-                "Follow · path ${state.operatorSpanM.toInt()} m · Start over clears the path",
+                if (strings.isEs) "Seguimiento · ruta ${state.operatorSpanM.toInt()} m · Reiniciar borra la ruta"
+                else "Follow · path ${state.operatorSpanM.toInt()} m · Start over clears the path",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -164,7 +169,7 @@ fun LivePane(
         }
         if (state.filter.watchedOnly) {
             Text(
-                "Watched only",
+                if (strings.isEs) "Solo vigiladas" else "Watched only",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -172,7 +177,7 @@ fun LivePane(
         }
         if (state.filter.customNamesOnly) {
             Text(
-                "Named radios only",
+                if (strings.isEs) "Solo radios con nombre" else "Named radios only",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -183,8 +188,8 @@ fun LivePane(
             val now = System.currentTimeMillis()
             val dur = Sit.fmtDuration(openSit.durationMs(now))
             val cap = when {
-                state.sit.memoryTight -> " · memory cap"
-                state.sit.atCap -> " · ${Sit.RADIO_CAP} cap"
+                state.sit.memoryTight -> if (strings.isEs) " · límite de memoria" else " · memory cap"
+                state.sit.atCap -> if (strings.isEs) " · límite ${Sit.RADIO_CAP}" else " · ${Sit.RADIO_CAP} cap"
                 else -> ""
             }
             Row(
@@ -194,7 +199,7 @@ fun LivePane(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Sit · ${openSit.name} · $dur · ${state.sit.radioCount} radios$cap",
+                    "Sit · ${openSit.name} · $dur · ${state.sit.radioCount} " + (if (strings.isEs) "radios" else "radios") + cap,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -211,12 +216,12 @@ fun LivePane(
         if (renameSit && openSit != null) {
             AlertDialog(
                 onDismissRequest = { renameSit = false },
-                title = { Text("Rename sit") },
+                title = { Text(if (strings.isEs) "Renombrar sesión" else "Rename sit") },
                 text = {
                     FieldwatchOutlinedField(
                         value = renameDraft,
                         onValueChange = { renameDraft = it.take(Sit.NAME_MAX) },
-                        label = "Name",
+                        label = if (strings.isEs) "Nombre" else "Name",
                     )
                 },
                 confirmButton = {
@@ -225,23 +230,24 @@ fun LivePane(
                             renameSit = false
                             vm.renameSit(openSit.id, renameDraft)
                         },
-                    ) { Text("Save") }
+                    ) { Text(if (strings.isEs) "Guardar" else "Save") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { renameSit = false }) { Text("Cancel") }
+                    TextButton(onClick = { renameSit = false }) { Text(if (strings.isEs) "Cancelar" else "Cancel") }
                 },
             )
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
+            val emptyMsg = arrivalsEmpty(state, strings.isEs)
             when (state.settings.viewMode) {
-                ViewMode.RADAR -> RadarView(live, vm, sort, windowMs, onOpen, emptyHint = arrivalsEmpty(state), showFleet = showFleet, demoMode = demoMode, flashKeys = flashKeys, alertedKeys = alertedKeys)
-                ViewMode.LIST -> RankedList(live, vm, onOpen, sparklines = false, sort = sort, windowMs = windowMs, showBar = showBar, layoutEpoch = state.settings.scanControlsExpanded, emptyHint = arrivalsEmpty(state), showNewAge = state.filter.arrivalsOnly, showFleet = showFleet, showFrequency = showFrequency, showSeenTimes = showSeenTimes, flashKeys = flashKeys, alertedKeys = alertedKeys, pinEnd = pinEnd, titleLine = titleLine, subtitleLine = subtitleLine, demoMode = demoMode)
+                ViewMode.RADAR -> RadarView(live, vm, sort, windowMs, onOpen, emptyHint = emptyMsg, showFleet = showFleet, demoMode = demoMode, flashKeys = flashKeys, alertedKeys = alertedKeys)
+                ViewMode.LIST -> RankedList(live, vm, onOpen, sparklines = false, sort = sort, windowMs = windowMs, showBar = showBar, layoutEpoch = state.settings.scanControlsExpanded, emptyHint = emptyMsg, showNewAge = state.filter.arrivalsOnly, showFleet = showFleet, showFrequency = showFrequency, showSeenTimes = showSeenTimes, flashKeys = flashKeys, alertedKeys = alertedKeys, pinEnd = pinEnd, titleLine = titleLine, subtitleLine = subtitleLine, demoMode = demoMode)
                 ViewMode.TIMELINE -> TimelineView(live, vm, onOpen, showFleet = showFleet, showFrequency = showFrequency, showSeenTimes = showSeenTimes, flashKeys = flashKeys, alertedKeys = alertedKeys, titleLine = titleLine, subtitleLine = subtitleLine, demoMode = demoMode)
-                ViewMode.HYBRID -> RankedList(live, vm, onOpen, sparklines = true, sort = sort, windowMs = windowMs, showBar = showBar, layoutEpoch = state.settings.scanControlsExpanded, emptyHint = arrivalsEmpty(state), showNewAge = state.filter.arrivalsOnly, showFleet = showFleet, showFrequency = showFrequency, showSeenTimes = showSeenTimes, flashKeys = flashKeys, alertedKeys = alertedKeys, pinEnd = pinEnd, titleLine = titleLine, subtitleLine = subtitleLine, demoMode = demoMode)
+                ViewMode.HYBRID -> RankedList(live, vm, onOpen, sparklines = true, sort = sort, windowMs = windowMs, showBar = showBar, layoutEpoch = state.settings.scanControlsExpanded, emptyHint = emptyMsg, showNewAge = state.filter.arrivalsOnly, showFleet = showFleet, showFrequency = showFrequency, showSeenTimes = showSeenTimes, flashKeys = flashKeys, alertedKeys = alertedKeys, pinEnd = pinEnd, titleLine = titleLine, subtitleLine = subtitleLine, demoMode = demoMode)
                 ViewMode.BY_CLASS -> ClassOutlineView(
                     live, vm, state, onOpen,
                     sort = sort, windowMs = windowMs, showBar = showBar,
-                    emptyHint = arrivalsEmpty(state),
+                    emptyHint = emptyMsg,
                     showNewAge = state.filter.arrivalsOnly, showFleet = showFleet,
                     showFrequency = showFrequency, showSeenTimes = showSeenTimes,
                     flashKeys = flashKeys, alertedKeys = alertedKeys, titleLine = titleLine, subtitleLine = subtitleLine,
@@ -252,36 +258,44 @@ fun LivePane(
     }
 }
 
-private fun arrivalsEmpty(state: FieldwatchUi): String? {
+private fun arrivalsEmpty(state: FieldwatchUi, isEs: Boolean = false): String? {
     if (state.filter.movingWithYou) {
         return when {
             !state.settings.tagLocation ->
-                "Moving with you needs Settings → Tag detections with GPS, then a walk or drive."
+                if (isEs) "Seguimiento requiere Ajustes → Etiquetar detecciones con GPS, luego caminar o conducir."
+                else "Moving with you needs Settings → Tag detections with GPS, then a walk or drive."
             state.operatorSpanM < 45.0 ->
-                "GPS path ${state.operatorSpanM.toInt()} m — too short. Keep moving. " +
-                    "If this stays 0, Location is not updating (use high accuracy)."
+                if (isEs) "Ruta GPS ${state.operatorSpanM.toInt()} m — muy corta. Sigue en movimiento. Si permanece en 0, la ubicación no se actualiza."
+                else "GPS path ${state.operatorSpanM.toInt()} m — too short. Keep moving. If this stays 0, Location is not updating (use high accuracy)."
             state.filter.customNamesOnly || state.filter.watchedOnly ||
                 state.filter.namedOnly || state.filter.namedOnlyImplied() ->
-                "No loud BLE has stayed with you among the radios still allowed. " +
-                    "Tap the Moving with you preset to test BLE, or turn off Signatures only / Show only / Named radios only / Watched only."
+                if (isEs) "Ningún BLE potente ha permanecido contigo entre las radios permitidas. Desactiva Solo firmas / Solo vigiladas / Solo nombres personalizados."
+                else "No loud BLE has stayed with you among the radios still allowed. Tap the Moving with you preset to test BLE, or turn off Signatures only / Show only / Named radios only / Watched only."
             else ->
-                "No loud BLE has stayed with you along this path. Wi-Fi access points stay hidden. A tag in your bag or car should show. Find My MAC rotation will not stitch."
+                if (isEs) "Ningún BLE potente ha permanecido contigo en esta ruta. Los puntos de acceso Wi-Fi se ocultan. Una etiqueta en tu bolso o auto debería aparecer."
+                else "No loud BLE has stayed with you along this path. Wi-Fi access points stay hidden. A tag in your bag or car should show. Find My MAC rotation will not stitch."
         }
     }
     if (state.filter.arrivalsOnly) {
         return when {
-            state.arrivalsLearning -> "Hiding sitting access points until the next Wi-Fi scan. New Bluetooth still shows right away."
+            state.arrivalsLearning ->
+                if (isEs) "Ocultando puntos de acceso estáticos hasta el próximo escaneo Wi-Fi. Las nuevas señales Bluetooth se muestran de inmediato."
+                else "Hiding sitting access points until the next Wi-Fi scan. New Bluetooth still shows right away."
             state.hiddenKnown > 0 ->
-                "${state.hiddenKnown} already seen are hidden. A new radio stays while we hear it, then at least as long as Brief hold after the last packet."
+                if (isEs) "${state.hiddenKnown} ya vistos están ocultos. Una nueva radio permanece mientras se detecte y durante la retención breve."
+                else "${state.hiddenKnown} already seen are hidden. A new radio stays while we hear it, then at least as long as Brief hold after the last packet."
             else ->
-                "Waiting for a new Wi-Fi or BLE radio. It stays while we hear it, then at least as long as Brief hold after the last packet."
+                if (isEs) "Esperando nueva radio Wi-Fi o BLE. Permanece mientras se detecte y durante la retención breve tras el último paquete."
+                else "Waiting for a new Wi-Fi or BLE radio. It stays while we hear it, then at least as long as Brief hold after the last packet."
         }
     }
     if (state.filter.watchedOnly) {
-        return "No watched radios on the air. Bookmark a signature, turn Alert on a Named radio, or turn off Filters → Watched only."
+        return if (isEs) "No hay radios vigiladas en el aire. Marca una firma, activa Alerta en una radio con nombre o desactiva Filtros → Solo vigiladas."
+        else "No watched radios on the air. Bookmark a signature, turn Alert on a Named radio, or turn off Filters → Watched only."
     }
     if (state.filter.customNamesOnly) {
-        return "No named radios on the air. Set a custom name on detail, or turn off Filters → Named radios only."
+        return if (isEs) "No hay radios con nombre en el aire. Asigna un nombre en Detalle o desactiva Filtros → Solo radios con nombre."
+        else "No named radios on the air. Set a custom name on detail, or turn off Filters → Named radios only."
     }
     return null
 }
@@ -320,6 +334,7 @@ private fun ClassOutlineView(
     subtitleLine: ListLine,
     demoMode: Boolean,
 ) {
+    val strings = LocalAppStrings.current
     val classById = remember(state.fleets) { state.fleets.associate { it.id to it.kind } }
     val nameById = remember(state.fleets) { state.fleets.associate { it.id to it.name } }
     val slices = remember(devices, classById, nameById) {
@@ -368,13 +383,13 @@ private fun ClassOutlineView(
                 FieldwatchFilterChip(
                     selected = !hideEmpty,
                     onClick = { vm.updateSettings { it.copy(outlineHideEmpty = false) } },
-                    label = { Text("Show all") },
+                    label = { Text(if (strings.isEs) "Mostrar todo" else "Show all") },
                     modifier = Modifier.weight(1f),
                 )
                 FieldwatchFilterChip(
                     selected = hideEmpty,
                     onClick = { vm.updateSettings { it.copy(outlineHideEmpty = true) } },
-                    label = { Text("Collapse empty") },
+                    label = { Text(if (strings.isEs) "Ocultar vacías" else "Collapse empty") },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -383,7 +398,8 @@ private fun ClassOutlineView(
             item {
                 Text(
                     emptyHint
-                        ?: "No live emitters match the current filter. If this just emptied, the OS may be between scan windows — the last set is held and should return without a burst.",
+                        ?: if (strings.isEs) "No hay emisores activos que coincidan con el filtro actual. Si acaba de vaciarse, el sistema puede estar entre ventanas de escaneo."
+                        else "No live emitters match the current filter. If this just emptied, the OS may be between scan windows — the last set is held and should return without a burst.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(24.dp),
@@ -394,10 +410,10 @@ private fun ClassOutlineView(
         item(key = "outline-summary") {
             val hidden = slices.count { it.radios.isEmpty() }
             val summary = buildString {
-                append("${devices.size} radios")
-                if (unmatched > 0) append(" · $unmatched unmatched")
-                if (multi > 0) append(" · $multi in more than one class")
-                if (hideEmpty && hidden > 0) append(" · $hidden empty hidden")
+                append("${devices.size} " + (if (strings.isEs) "radios" else "radios"))
+                if (unmatched > 0) append(if (strings.isEs) " · $unmatched sin coincidencia" else " · $unmatched unmatched")
+                if (multi > 0) append(if (strings.isEs) " · $multi en varias clases" else " · $multi in more than one class")
+                if (hideEmpty && hidden > 0) append(if (strings.isEs) " · $hidden vacías ocultas" else " · $hidden empty hidden")
             }
             Text(
                 summary,
@@ -408,13 +424,13 @@ private fun ClassOutlineView(
         visible.forEach { slice ->
             item(key = "class-${slice.id}") {
                 OutlineGroupRow(
-                    title = slice.label(),
+                    title = slice.kind?.localizedLabel(strings.isEs) ?: if (strings.isEs) "Sin coincidencia" else "Unmatched",
                     count = slice.radios.size,
                     subtitle = when {
                         slice.radios.isEmpty() -> null
-                        slice.kind == null -> "no signature"
+                        slice.kind == null -> if (strings.isEs) "sin firma" else "no signature"
                         slice.signatures.size == 1 -> vm.fleetName(slice.signatures.first().fleetId)
-                        else -> "${slice.signatures.size} signatures"
+                        else -> if (strings.isEs) "${slice.signatures.size} firmas" else "${slice.signatures.size} signatures"
                     },
                     accent = slice.accent(vm).nightIf(LocalNightMode.current),
                     expanded = slice.id in openClasses,
@@ -749,6 +765,7 @@ private fun RadarView(
     alertedKeys: Set<String> = emptySet(),
 ) {
     val sweep = rememberRadarSweepDegrees()
+    val strings = LocalAppStrings.current
     val night = LocalNightMode.current
     val ring = MaterialTheme.colorScheme.outline
     val beam = MaterialTheme.colorScheme.primary
@@ -903,7 +920,7 @@ private fun RadarView(
 
             drawCircle(youColor, radius = 7f, center = c)
             drawCircle(youColor.copy(alpha = 0.2f), radius = 16f, center = c)
-            val you = measurer.measure("YOU", ringStyle.copy(color = youColor, fontWeight = FontWeight.Bold))
+            val you = measurer.measure(if (strings.isEs) "TÚ" else "YOU", ringStyle.copy(color = youColor, fontWeight = FontWeight.Bold))
             drawText(you, topLeft = Offset(c.x - you.size.width / 2f, c.y + 12f))
         }
 
@@ -914,14 +931,16 @@ private fun RadarView(
         ) {
             Text(
                 if (devices.isEmpty()) {
-                    emptyHint ?: "No devices match the current filter"
+                    emptyHint ?: if (strings.isEs) "Ningún dispositivo coincide con el filtro actual" else "No devices match the current filter"
                 } else {
                     val zoomBit = if (zoom > 1.04f) {
-                        " · ×${"%.1f".format(Locale.US, zoom)} · double-tap reset"
+                        if (strings.isEs) " · ×${"%.1f".format(Locale.US, zoom)} · doble toque reiniciar"
+                        else " · ×${"%.1f".format(Locale.US, zoom)} · double-tap reset"
                     } else {
-                        " · pinch to zoom"
+                        if (strings.isEs) " · pellizca para zoom" else " · pinch to zoom"
                     }
-                    "$onAir on-air · ${devices.size} in filter · dim = gone · tap a blip$zoomBit"
+                    if (strings.isEs) "$onAir en el aire · ${devices.size} filtrados · atenuado = fuera de línea · toca un punto$zoomBit"
+                    else "$onAir on-air · ${devices.size} in filter · dim = gone · tap a blip$zoomBit"
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -994,6 +1013,7 @@ private fun RankedList(
     subtitleLine: ListLine = ListLine.NAME_AND_TYPE,
     demoMode: Boolean = false,
 ) {
+    val strings = LocalAppStrings.current
     val listState = rememberLazyListState()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -1087,7 +1107,8 @@ private fun RankedList(
             item {
                 Text(
                     emptyHint
-                        ?: "No live emitters match the current filter. If this just emptied, the OS may be between scan windows — the last set is held and should return without a burst. Use Timeline for recent disappearances.",
+                        ?: if (strings.isEs) "No hay emisores activos que coincidan con el filtro actual. Si acaba de vaciarse, el sistema puede estar entre ventanas de escaneo. Usa la Línea de tiempo para recientes."
+                        else "No live emitters match the current filter. If this just emptied, the OS may be between scan windows — the last set is held and should return without a burst. Use Timeline for recent disappearances.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(24.dp),
@@ -1121,6 +1142,7 @@ fun DeviceRow(
     demoMode: Boolean = false,
     alerted: Boolean = false,
 ) {
+    val strings = LocalAppStrings.current
     val heardRssi = device.heardRssi(sort, windowMs, now).toInt()
     val rankRssi = device.sortRssi(sort, windowMs, now).toInt()
     val accent = (device.fleetIds.firstOrNull()
@@ -1240,7 +1262,7 @@ fun DeviceRow(
             if (showSeenTimes) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    seenTimesLabel(device, now),
+                    seenTimesLabel(device, now, strings.isEs),
                     style = MaterialTheme.typography.labelSmall,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1426,6 +1448,7 @@ private fun TimelineView(
     subtitleLine: ListLine = ListLine.NAME_AND_TYPE,
     demoMode: Boolean = false,
 ) {
+    val strings = LocalAppStrings.current
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -1454,7 +1477,8 @@ private fun TimelineView(
     ) {
         item {
             Text(
-                "Last 15 minutes · solid bars are on-air windows",
+                if (strings.isEs) "Últimos 15 minutos · barras continuas son ventanas en el aire"
+                else "Last 15 minutes · solid bars are on-air windows",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1523,7 +1547,7 @@ private fun TimelineView(
                     }
                     if (showSeenTimes) {
                         Text(
-                            seenTimesLabel(device, now),
+                            seenTimesLabel(device, now, strings.isEs),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1611,11 +1635,11 @@ private fun radioFactLine(device: Sighting): String? {
     return listOfNotNull(ch, mhz).takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
 
-private fun seenTimesLabel(device: Sighting, now: Long): String {
+private fun seenTimesLabel(device: Sighting, now: Long, isEs: Boolean = false): String {
     val first = formatAge(now - device.firstSeen)
     val lastMs = now - device.lastSeen
-    val last = if (lastMs < 1_000L) "now" else formatAge(lastMs)
-    return "first $first  ·  last $last"
+    val last = if (lastMs < 1_000L) (if (isEs) "ahora" else "now") else formatAge(lastMs)
+    return if (isEs) "primero $first  ·  último $last" else "first $first  ·  last $last"
 }
 
 private fun formatAge(ms: Long): String {

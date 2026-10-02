@@ -169,7 +169,7 @@ fun HuntScreen(
                         Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Beep", Modifier.weight(1f))
+                        Text(if (strings.isEs) "Pitido" else "Beep", Modifier.weight(1f))
                         FieldwatchSwitch(
                             huntBeep,
                             { on ->
@@ -182,7 +182,7 @@ fun HuntScreen(
                         Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Vibrate", Modifier.weight(1f))
+                        Text(if (strings.isEs) "Vibración" else "Vibrate", Modifier.weight(1f))
                         FieldwatchSwitch(
                             huntVibrate,
                             { on ->
@@ -209,7 +209,7 @@ fun HuntScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    Hunt.label(hunt.cue),
+                    Hunt.localizedLabel(hunt.cue, strings.isEs),
                     color = cueColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 32.sp,
@@ -238,7 +238,7 @@ fun HuntScreen(
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Text(
-                    Hunt.hint(hunt.cue),
+                    Hunt.localizedHint(hunt.cue, strings.isEs),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -255,7 +255,7 @@ fun HuntScreen(
                 color = accent,
             )
             Text(
-                rssi?.let { DeviceExplain.rssiExplain(it) } ?: "no live RSSI",
+                rssi?.let { DeviceExplain.rssiExplain(it) } ?: if (strings.isEs) "sin RSSI activo" else "no live RSSI",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -267,9 +267,9 @@ fun HuntScreen(
             )
             Text(
                 when {
-                    heardAgo == null -> "last heard  —"
-                    heardAgo < 60L -> "last heard ${heardAgo}s ago"
-                    else -> "last heard ${heardAgo / 60L}m ago"
+                    heardAgo == null -> if (strings.isEs) "visto por última vez  —" else "last heard  —"
+                    heardAgo < 60L -> if (strings.isEs) "visto hace ${heardAgo}s" else "last heard ${heardAgo}s ago"
+                    else -> if (strings.isEs) "visto hace ${heardAgo / 60L}m" else "last heard ${heardAgo / 60L}m ago"
                 },
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.labelMedium,

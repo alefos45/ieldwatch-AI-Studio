@@ -600,16 +600,16 @@ val StringsEs = AppStrings(
 
 fun resolveLanguage(code: String): String {
     return when (code.lowercase()) {
-        "es" -> "es"
         "en" -> "en"
+        "es" -> "es"
         else -> {
             val sys = Locale.getDefault().language.lowercase()
-            if (sys.startsWith("es")) "es" else "en"
+            if (sys.startsWith("en") && !sys.startsWith("es")) "en" else "es"
         }
     }
 }
 
-val LocalAppStrings = compositionLocalOf { StringsEn }
+val LocalAppStrings = compositionLocalOf { StringsEs }
 
 @Composable
 fun currentStrings(languageCode: String): AppStrings {

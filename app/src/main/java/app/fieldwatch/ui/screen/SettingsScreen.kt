@@ -186,13 +186,13 @@ fun SettingsScreen(
             )
             }
 
-            SectionCard("Scanning") {
+            SectionCard(strings.scanningSection) {
             val label = when (settings.intensity) {
-                ScanIntensity.SAVER -> "Battery saver"
-                ScanIntensity.BALANCED -> "Balanced"
-                ScanIntensity.PERFORMANCE -> "High performance"
+                ScanIntensity.SAVER -> strings.intensitySaver
+                ScanIntensity.BALANCED -> strings.intensityBalanced
+                ScanIntensity.PERFORMANCE -> strings.intensityPerformance
             }
-            Text("Scan intensity  ·  $label")
+            Text("${strings.scanIntensity}  ·  $label")
             FieldwatchSlider(
                 value = settings.intensity.ordinal.toFloat(),
                 onValueChange = { v ->
@@ -203,15 +203,19 @@ fun SettingsScreen(
                 steps = 1,
             )
             Text(
-                "Wi-Fi is a batch radio: the phone grabs every AP at once, then must wait. High performance asks about every 30s — that is the fastest cadence that stays under the OS limit of four scans per two minutes. BLE still streams in between.",
+                if (strings.isEs) {
+                    "Wi-Fi se escanea por lotes: el teléfono detecta todos los AP a la vez y luego espera. Alto rendimiento consulta cada ~30s, manteniéndose bajo el límite de Android de 4 escaneos cada 2 minutos. BLE sigue transmitiendo continuamente."
+                } else {
+                    "Wi-Fi is a batch radio: the phone grabs every AP at once, then must wait. High performance asks about every 30s — that is the fastest cadence that stays under the OS limit of four scans per two minutes. BLE still streams in between."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             StableCaption(
                 state.throttleHint.ifBlank { " " },
-                "Wi-Fi waiting on OS",
-                "Wi-Fi scanning",
-                "Wi-Fi next 99s",
+                if (strings.isEs) "Wi-Fi esperando al SO" else "Wi-Fi waiting on OS",
+                if (strings.isEs) "Wi-Fi escaneando" else "Wi-Fi scanning",
+                if (strings.isEs) "Wi-Fi próximo en 99s" else "Wi-Fi next 99s",
                 " ",
             )
 
@@ -234,7 +238,7 @@ fun SettingsScreen(
             }
             val fastActive = settings.wifiFastScan && !osThrottled
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Faster Wi-Fi AP scans", Modifier.weight(1f))
+                Text(if (strings.isEs) "Escaneos Wi-Fi más rápidos" else "Faster Wi-Fi AP scans", Modifier.weight(1f))
                 FieldwatchSwitch(
                     checked = settings.wifiFastScan,
                     onCheckedChange = { on ->
@@ -251,13 +255,17 @@ fun SettingsScreen(
             StableCaption(
                 when {
                     Build.VERSION.SDK_INT < 30 ->
-                        "Needs Android 11+ so Fieldwatch can read whether the OS is still throttling scans. This phone cannot confirm that, so the switch stays off."
+                        if (strings.isEs) "Requiere Android 11+ para que Fieldwatch pueda leer si el SO sigue limitando los escaneos. Se mantiene desactivado."
+                        else "Needs Android 11+ so Fieldwatch can read whether the OS is still throttling scans. This phone cannot confirm that, so the switch stays off."
                     fastActive ->
-                        "On. Fieldwatch asks for a new AP list about every 8 seconds. Uses more battery and heat. If the OS starts refusing scans, it backs off."
+                        if (strings.isEs) "Activado. Fieldwatch solicita nueva lista de AP cada ~8s. Usa más batería."
+                        else "On. Fieldwatch asks for a new AP list about every 8 seconds. Uses more battery and heat. If the OS starts refusing scans, it backs off."
                     settings.wifiFastScan && osThrottled ->
-                        "Saved on, but not in effect — Android Wi-Fi scan throttling is still on. Turn that off in Developer options, then return here."
+                        if (strings.isEs) "Guardado, pero no activo — la limitación de escaneo Wi-Fi de Android sigue activa. Desactívala en Opciones de desarrollador."
+                        else "Saved on, but not in effect — Android Wi-Fi scan throttling is still on. Turn that off in Developer options, then return here."
                     else ->
-                        "Stock Android allows about four AP scans per two minutes. Faster scans only run after you turn off Wi-Fi scan throttling in Developer options. Fieldwatch checks that OS switch before turning this on, and cannot change it for you."
+                        if (strings.isEs) "Android estándar permite unos 4 escaneos de AP por cada dos minutos. Los escaneos más rápidos requieren desactivar la limitación en Opciones de desarrollador."
+                        else "Stock Android allows about four AP scans per two minutes. Faster scans only run after you turn off Wi-Fi scan throttling in Developer options. Fieldwatch checks that OS switch before turning this on, and cannot change it for you."
                 },
                 "Needs Android 11+ so Fieldwatch can read whether the OS is still throttling scans. This phone cannot confirm that, so the switch stays off.",
                 "On. Fieldwatch asks for a new AP list about every 8 seconds. Uses more battery and heat. If the OS starts refusing scans, it backs off.",
@@ -267,13 +275,15 @@ fun SettingsScreen(
             if (needDevOptions) {
                 AlertDialog(
                     onDismissRequest = { needDevOptions = false },
-                    title = { Text("Developer options required") },
+                    title = { Text(if (strings.isEs) "Opciones de desarrollador requeridas" else "Developer options required") },
                     text = {
                         Text(
                             if (Build.VERSION.SDK_INT < 30) {
-                                "This phone is older than Android 11, so Fieldwatch cannot read the OS Wi-Fi scan-throttle switch. Faster AP scanning stays off."
+                                if (strings.isEs) "Este teléfono es anterior a Android 11, por lo que Fieldwatch no puede leer la limitación de escaneo Wi-Fi del SO."
+                                else "This phone is older than Android 11, so Fieldwatch cannot read the OS Wi-Fi scan-throttle switch. Faster AP scanning stays off."
                             } else {
-                                "Android is still throttling Wi-Fi scans (about four per two minutes). Fieldwatch will not turn Faster Wi-Fi AP scans on until that is off.\n\n" +
+                                if (strings.isEs) "Android aún está limitando los escaneos Wi-Fi. Activa las Opciones de desarrollador (toca Número de compilación 7 veces en Acerca del teléfono), luego ve a Ajustes → Opciones de desarrollador → Limitación de escaneo Wi-Fi → Desactivar."
+                                else "Android is still throttling Wi-Fi scans (about four per two minutes). Fieldwatch will not turn Faster Wi-Fi AP scans on until that is off.\n\n" +
                                     "Enable Developer options (tap Build number seven times in About phone), then Settings → Developer options → Wi-Fi scan throttling → Off. Come back and flip this switch again."
                             },
                         )
@@ -287,43 +297,41 @@ fun SettingsScreen(
                                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
                                     }
                                 },
-                            ) { Text("Open developer options") }
+                            ) { Text(if (strings.isEs) "Abrir opciones de desarrollador" else "Open developer options") }
                         } else {
-                            TextButton(onClick = { needDevOptions = false }) { Text("OK") }
+                            TextButton(onClick = { needDevOptions = false }) { Text(strings.ok) }
                         }
                     },
                     dismissButton = {
                         if (Build.VERSION.SDK_INT >= 30) {
-                            TextButton(onClick = { needDevOptions = false }) { Text("Not now") }
+                            TextButton(onClick = { needDevOptions = false }) { Text(if (strings.isEs) "Ahora no" else "Not now") }
                         }
                     },
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Allow background usage", Modifier.weight(1f))
+                Text(if (strings.isEs) "Permitir uso en segundo plano" else "Allow background usage", Modifier.weight(1f))
                 FieldwatchSwitch(
                     checked = backgroundAllowed,
                     onCheckedChange = { batteryGate = BatteryAndroidGate.BACKGROUND },
                 )
             }
             Text(
-                "Mirrors Android Allow background usage. Tap to open Fieldwatch’s Battery page and " +
-                    "use that switch. Fieldwatch updates when you return. Off: the OS can kill the scan " +
-                    "as soon as you leave. Not Keep screen on.",
+                if (strings.isEs) "Refleja el permiso de uso en segundo plano de Android. Toca para abrir la página de batería de Fieldwatch y usar ese interruptor."
+                else "Mirrors Android Allow background usage. Tap to open Fieldwatch’s Battery page and use that switch. Fieldwatch updates when you return. Off: the OS can kill the scan as soon as you leave. Not Keep screen on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Unrestricted battery", Modifier.weight(1f))
+                Text(if (strings.isEs) "Batería sin restricciones" else "Unrestricted battery", Modifier.weight(1f))
                 FieldwatchSwitch(
                     checked = unrestricted,
                     onCheckedChange = { batteryGate = BatteryAndroidGate.UNRESTRICTED },
                 )
             }
             Text(
-                "Mirrors Android Unrestricted (not Optimized). Some phones (Samsung among them) do not " +
-                    "open onto that choice. If you only see Allow background usage, tap that row to " +
-                    "click through and select Unrestricted. Fieldwatch updates when you return.",
+                if (strings.isEs) "Refleja Batería sin restricciones de Android (no optimizada). Permite escanear sin que el sistema suspenda la app."
+                else "Mirrors Android Unrestricted (not Optimized). Some phones (Samsung among them) do not open onto that choice. If you only see Allow background usage, tap that row to click through and select Unrestricted. Fieldwatch updates when you return.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -332,18 +340,19 @@ fun SettingsScreen(
                 AlertDialog(
                     onDismissRequest = { batteryGate = null },
                     title = {
-                        Text(if (background) "Allow background usage" else "Unrestricted battery")
+                        Text(
+                            if (background) (if (strings.isEs) "Permitir uso en segundo plano" else "Allow background usage")
+                            else (if (strings.isEs) "Batería sin restricciones" else "Unrestricted battery"),
+                        )
                     },
                     text = {
                         Text(
                             if (background) {
-                                "The next screen is Fieldwatch’s Battery page. Use the Allow background usage switch. " +
-                                    "Fieldwatch will match that setting when you return."
+                                if (strings.isEs) "La siguiente pantalla es la página de batería de Fieldwatch. Activa el interruptor 'Permitir uso en segundo plano'."
+                                else "The next screen is Fieldwatch’s Battery page. Use the Allow background usage switch. Fieldwatch will match that setting when you return."
                             } else {
-                                "Some phones (Samsung among them) do not open onto Unrestricted / " +
-                                    "Optimized / Restricted. If you only see Allow background usage, " +
-                                    "tap that row (the words, not the blue switch) to click through, " +
-                                    "then select Unrestricted. Fieldwatch will match that when you return."
+                                if (strings.isEs) "En la pantalla de ajustes de batería, selecciona 'Sin restricciones' para evitar interrupciones."
+                                else "Some phones (Samsung among them) do not open onto Unrestricted / Optimized / Restricted. If you only see Allow background usage, tap that row to click through, then select Unrestricted. Fieldwatch will match that when you return."
                             },
                         )
                     },
@@ -357,10 +366,10 @@ fun SettingsScreen(
                                     highlightBackground = gate == BatteryAndroidGate.BACKGROUND,
                                 )
                             },
-                        ) { Text("Open Android settings") }
+                        ) { Text(if (strings.isEs) "Abrir ajustes de Android" else "Open Android settings") }
                     },
                     dismissButton = {
-                        TextButton(onClick = { batteryGate = null }) { Text("Not now") }
+                        TextButton(onClick = { batteryGate = null }) { Text(if (strings.isEs) "Ahora no" else "Not now") }
                     },
                 )
             }

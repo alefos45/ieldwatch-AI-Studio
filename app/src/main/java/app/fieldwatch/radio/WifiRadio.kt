@@ -24,7 +24,7 @@ class WifiRadio(
     private val onObservation: (Observation) -> Unit,
     private val onScanFinished: (Int, Boolean) -> Unit,
 ) {
-    private val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
     private val main = Handler(Looper.getMainLooper())
     private var registered = false
     private val lastEmitAt = AtomicLong(0L)
@@ -66,7 +66,7 @@ class WifiRadio(
         )
         if (Build.VERSION.SDK_INT >= 30) {
             runCatching {
-                wifi.registerScanResultsCallback(callbackExecutor, resultsCallback!!)
+                wifi?.registerScanResultsCallback(callbackExecutor, resultsCallback!!)
             }
         }
         registered = true
@@ -79,7 +79,7 @@ class WifiRadio(
         main.removeCallbacks(poll)
         runCatching { context.unregisterReceiver(receiver) }
         if (Build.VERSION.SDK_INT >= 30) {
-            runCatching { wifi.unregisterScanResultsCallback(resultsCallback!!) }
+            runCatching { wifi?.unregisterScanResultsCallback(resultsCallback!!) }
         }
         registered = false
         awaitingScan.set(false)
@@ -94,7 +94,7 @@ class WifiRadio(
             if (quotaWait > nextAllowedAt.get()) nextAllowedAt.set(quotaWait)
             return false
         }
-        val ok = runCatching { wifi.startScan() }.getOrDefault(false)
+        val ok = runCatching { wifi?.startScan() == true }.getOrDefault(false)
         if (ok) {
             failStreak.set(0)
             awaitingScan.set(true)
@@ -140,7 +140,7 @@ class WifiRadio(
     @SuppressLint("MissingPermission")
     private fun emitResults(fresh: Boolean) {
         val nowWall = System.currentTimeMillis()
-        val results = runCatching { wifi.scanResults }.getOrDefault(emptyList())
+        val results = runCatching { wifi?.scanResults }.getOrNull().orEmpty()
         if (results.isEmpty()) {
             if (awaitingScan.get()) {
                 main.removeCallbacks(poll)

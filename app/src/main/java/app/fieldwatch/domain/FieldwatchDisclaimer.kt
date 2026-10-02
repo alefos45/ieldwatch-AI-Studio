@@ -26,6 +26,21 @@ object FieldwatchDisclaimer {
     const val ACCEPT =
         "By checking the box and continuing, you accept these terms and the MIT License."
 
+    const val HOBBY_ES =
+        "Este es un proyecto personal, proporcionado tal cual bajo la Licencia MIT. Úselo bajo su propio riesgo."
+
+    const val HYPOTHESES_ES =
+        "Las detecciones, coincidencias de patrones, 'En movimiento contigo' / 'posible seguimiento', informes de misión y exportaciones para IA son hipótesis — no constituyen una identificación legalmente vinculante ni una captura de radiofrecuencia exhaustiva. Los radios apagados, en reposo, con direcciones aleatorias o no expuestos por el sistema operativo no aparecerán."
+
+    const val LIABILITY_ES =
+        "Usted es el único responsable del uso de esta aplicación y del cumplimiento de la legislación local aplicable. En la medida máxima permitida por la ley, los autores no se hacen responsables de daños directos o indirectos derivados de su uso."
+
+    const val LOCATION_ES =
+        "Las marcas GPS corresponden a este teléfono al momento de la escucha, no al radio remoto, a menos que un mapa de decodificación transmita su propia latitud/longitud (Remote ID Location)."
+
+    const val ACCEPT_ES =
+        "Al marcar la casilla y continuar, acepta estos términos y la Licencia MIT."
+
     const val LICENSE_TITLE = "MIT License"
 
     /** Body of LICENSE in the repository, without the title line. */
@@ -53,6 +68,13 @@ object FieldwatchDisclaimer {
     val LICENSE_TEXT = "$LICENSE_TITLE\n\n$LICENSE_BODY"
 
     val firstRunDisclaimer: String = "$HOBBY\n\n$HYPOTHESES\n\n$LIABILITY"
+
+    fun firstRunDisclaimer(isEs: Boolean): String =
+        if (isEs) "$HOBBY_ES\n\n$HYPOTHESES_ES\n\n$LIABILITY_ES"
+        else firstRunDisclaimer
+
+    fun acceptText(isEs: Boolean): String =
+        if (isEs) ACCEPT_ES else ACCEPT
 
     val firstRun: String =
         "$firstRunDisclaimer\n\n$LICENSE_TEXT\n\n$ACCEPT"

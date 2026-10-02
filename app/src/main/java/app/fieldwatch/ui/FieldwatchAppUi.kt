@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -132,6 +133,7 @@ import app.fieldwatch.ui.theme.FieldwatchTheme
 fun FieldwatchRoot(vm: FieldwatchViewModel, onRequestPermissions: () -> Unit) {
     val state by vm.ui.collectAsStateWithLifecycle()
     val strings = currentStrings(state.settings.language)
+    var bypassGate by remember { mutableStateOf(false) }
     CompositionLocalProvider(LocalAppStrings provides strings) {
         FieldwatchTheme(
             darkTheme = true,
@@ -139,10 +141,13 @@ fun FieldwatchRoot(vm: FieldwatchViewModel, onRequestPermissions: () -> Unit) {
         ) {
             if (!state.settings.disclaimerOk()) {
                 DisclaimerGate(onAccept = vm::acceptDisclaimer)
-            } else if (!state.permissionsOk) {
-                PermissionGate(onRequestPermissions)
+            } else if (!state.permissionsOk && !bypassGate) {
+                PermissionGate(
+                    onRequest = onRequestPermissions,
+                    onContinueAnyway = { bypassGate = true },
+                )
             } else {
-                FieldwatchShell(state, vm)
+                FieldwatchShell(state, vm, onRequestPermissions)
             }
         }
     }
@@ -174,7 +179,7 @@ private fun DisclaimerGate(onAccept: () -> Unit) {
             modifier = Modifier.padding(top = 20.dp),
         )
         Text(
-            FieldwatchDisclaimer.firstRunDisclaimer,
+            FieldwatchDisclaimer.firstRunDisclaimer(strings.isEs),
             style = MaterialTheme.typography.bodyMedium,
             color = ink,
             modifier = Modifier.padding(top = 8.dp),
@@ -193,7 +198,7 @@ private fun DisclaimerGate(onAccept: () -> Unit) {
             modifier = Modifier.padding(top = 8.dp),
         )
         Text(
-            FieldwatchDisclaimer.ACCEPT,
+            FieldwatchDisclaimer.acceptText(strings.isEs),
             style = MaterialTheme.typography.bodyMedium,
             color = ink,
             modifier = Modifier.padding(top = 20.dp),
@@ -228,10 +233,13 @@ private fun DisclaimerGate(onAccept: () -> Unit) {
 }
 
 @Composable
-private fun PermissionGate(onRequest: () -> Unit) {
+private fun PermissionGate(onRequest: () -> Unit, onContinueAnyway: () -> Unit) {
     val strings = LocalAppStrings.current
     Column(
-        Modifier.fillMaxSize().padding(28.dp),
+        Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -239,16 +247,32 @@ private fun PermissionGate(onRequest: () -> Unit) {
         Text(
             strings.permissionsDesc,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),
+            modifier = Modifier.padding(top = 12.dp, bottom = 24.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = onRequest) { Text(strings.permissionsBtn) }
+        Button(
+            onClick = onRequest,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            Text(strings.permissionsBtn)
+        }
+        androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+        androidx.compose.material3.OutlinedButton(
+            onClick = onContinueAnyway,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            Text(if (strings.isEs) "Entrar a la app de todos modos" else "Continue anyway")
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
+private fun FieldwatchShell(
+    state: FieldwatchUi,
+    vm: FieldwatchViewModel,
+    onRequestPermissions: () -> Unit = {},
+) {
     val strings = LocalAppStrings.current
     val nav = rememberNavController()
     val route = nav.currentBackStackEntryAsState().value?.destination?.route ?: "live"
@@ -618,14 +642,45 @@ private fun FieldwatchShell(state: FieldwatchUi, vm: FieldwatchViewModel) {
         ) {
             composable("live") {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
-                    LivePane(
-                        state = state,
-                        vm = vm,
-                        onOpen = {
-                            vm.select(it)
-                            nav.navigate("detail")
-                        },
-                    )
+                    Column(Modifier.fillMaxSize()) {
+                        if (!state.permissionsOk) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onRequestPermissions() },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.WarningAmber,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        if (strings.isEs) "Permisos no concedidos. Toca aquí para activarlos." else "Radio permissions missing. Tap here to grant.",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                        }
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            LivePane(
+                                state = state,
+                                vm = vm,
+                                onOpen = {
+                                    vm.select(it)
+                                    nav.navigate("detail")
+                                },
+                            )
+                        }
+                    }
                     AnimatedVisibility(
                         visible = state.settings.scanControlsExpanded,
                         enter = fadeIn(),

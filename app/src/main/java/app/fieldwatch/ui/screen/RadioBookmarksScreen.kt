@@ -51,6 +51,7 @@ import app.fieldwatch.ui.NestedTopBar
 import app.fieldwatch.ui.RadioKindMark
 import app.fieldwatch.ui.FieldwatchUi
 import app.fieldwatch.ui.FieldwatchViewModel
+import app.fieldwatch.ui.i18n.LocalAppStrings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +61,7 @@ fun RadioBookmarksScreen(
     onBack: () -> Unit,
     onOpen: (String) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val radios = RadioBookmarks.radios(state.watchlist)
     val liveKeys = state.devices.filter { !it.gone }.map { it.key }.toSet()
     val demoMode = state.settings.demoMode
@@ -71,10 +73,10 @@ fun RadioBookmarksScreen(
         contentWindowInsets = NestedTabInsets,
         topBar = {
             NestedTopBar(
-                title = "Named radios (${radios.size})",
+                title = if (strings.isEs) "Radios con nombre (${radios.size})" else "Named radios (${radios.size})",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, if (strings.isEs) "Atrás" else "Back")
                     }
                 },
             )
@@ -87,7 +89,8 @@ fun RadioBookmarksScreen(
         ) {
             item {
                 Text(
-                    "One MAC each. Custom name shows on Live. Observer notes show on detail and reports. Alert is optional (pip / voice / flash). Filters → Named radios only hides everything else. Signature watches stay on Signatures.",
+                    if (strings.isEs) "Una MAC cada una. El nombre personalizado se muestra en Vivo. Las notas de observador aparecen en detalle e informes. La alerta es opcional (pip / voz / destello). Filtros → Solo radios con nombre oculta todo lo demás. Las firmas vigiladas permanecen en Firmas."
+                    else "One MAC each. Custom name shows on Live. Observer notes show on detail and reports. Alert is optional (pip / voice / flash). Filters → Named radios only hides everything else. Signature watches stay on Signatures.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -95,7 +98,8 @@ fun RadioBookmarksScreen(
             if (radios.isEmpty()) {
                 item {
                     Text(
-                        "No named radios. Set a custom name on detail, or bookmark a radio (top-right) to watch it.",
+                        if (strings.isEs) "Sin radios con nombre. Asigna un nombre personalizado en detalle o marca una radio (arriba a la derecha) para vigilarla."
+                        else "No named radios. Set a custom name on detail, or bookmark a radio (top-right) to watch it.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp),
@@ -119,6 +123,7 @@ fun RadioBookmarksScreen(
                         onAlert = { on -> vm.setRadioAlert(row.id, on) },
                         onRename = { renameId = row.id },
                         onRemove = { vm.removeRadioBookmark(row.id) },
+                        isEs = strings.isEs,
                     )
                 }
                 item {
@@ -127,7 +132,7 @@ fun RadioBookmarksScreen(
                         onClick = { clearAll = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Clear all ${radios.size} named radios")
+                        Text(if (strings.isEs) "Borrar las ${radios.size} radios con nombre" else "Clear all ${radios.size} named radios")
                     }
                 }
             }
@@ -137,9 +142,9 @@ fun RadioBookmarksScreen(
     if (clearAll) {
         AlertDialog(
             onDismissRequest = { clearAll = false },
-            title = { Text("Clear named radios?") },
+            title = { Text(if (strings.isEs) "¿Borrar radios con nombre?" else "Clear named radios?") },
             text = {
-                Text("Remove ${radios.size} named radios. Signature watches stay.")
+                Text(if (strings.isEs) "Eliminar ${radios.size} radios con nombre. Las firmas vigiladas se conservan." else "Remove ${radios.size} named radios. Signature watches stay.")
             },
             confirmButton = {
                 TextButton(
@@ -147,10 +152,10 @@ fun RadioBookmarksScreen(
                         vm.clearRadioBookmarks()
                         clearAll = false
                     },
-                ) { Text("Clear") }
+                ) { Text(if (strings.isEs) "Borrar" else "Clear") }
             },
             dismissButton = {
-                TextButton(onClick = { clearAll = false }) { Text("Cancel") }
+                TextButton(onClick = { clearAll = false }) { Text(if (strings.isEs) "Cancelar" else "Cancel") }
             },
         )
     }
@@ -159,18 +164,18 @@ fun RadioBookmarksScreen(
         var notesDraft by remember(renameTarget.id) { mutableStateOf(renameTarget.observerNotes) }
         AlertDialog(
             onDismissRequest = { renameId = null },
-            title = { Text("Named radio") },
+            title = { Text(if (strings.isEs) "Radio con nombre" else "Named radio") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     FieldwatchOutlinedField(
                         value = draft,
                         onValueChange = { draft = it.take(RadioBookmarks.MAX_NAME) },
-                        label = "Custom name",
+                        label = if (strings.isEs) "Nombre personalizado" else "Custom name",
                     )
                     FieldwatchOutlinedField(
                         value = notesDraft,
                         onValueChange = { notesDraft = it.take(RadioBookmarks.MAX_NOTES) },
-                        label = "Observer notes",
+                        label = if (strings.isEs) "Notas del observador" else "Observer notes",
                         singleLine = false,
                         minLines = 3,
                         supportingText = "${notesDraft.trim().length}/${RadioBookmarks.MAX_NOTES}",
@@ -183,10 +188,10 @@ fun RadioBookmarksScreen(
                         vm.updateNamedRadio(renameTarget.id, draft, notesDraft)
                         renameId = null
                     },
-                ) { Text("Save") }
+                ) { Text(if (strings.isEs) "Guardar" else "Save") }
             },
             dismissButton = {
-                TextButton(onClick = { renameId = null }) { Text("Cancel") }
+                TextButton(onClick = { renameId = null }) { Text(if (strings.isEs) "Cancelar" else "Cancel") }
             },
         )
     }
@@ -202,6 +207,7 @@ private fun BookmarkCard(
     onAlert: (Boolean) -> Unit,
     onRename: () -> Unit,
     onRemove: () -> Unit,
+    isEs: Boolean = false,
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -231,7 +237,11 @@ private fun BookmarkCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    if (onAir) "On the air — tap to open detail" else "Not this session",
+                    if (onAir) {
+                        if (isEs) "En el aire — toca para abrir detalle" else "On the air — tap to open detail"
+                    } else {
+                        if (isEs) "No en esta sesión" else "Not this session"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -251,17 +261,17 @@ private fun BookmarkCard(
                 modifier = Modifier.padding(start = 8.dp),
             ) {
                 Text(
-                    "Alert",
+                    if (isEs) "Alerta" else "Alert",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 FieldwatchSwitch(checked = row.alert, onCheckedChange = onAlert)
             }
             IconButton(onClick = onRename) {
-                Icon(Icons.Outlined.Edit, "Edit", modifier = Modifier.size(20.dp))
+                Icon(Icons.Outlined.Edit, if (isEs) "Editar" else "Edit", modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onRemove) {
-                Icon(Icons.Outlined.Delete, "Remove", modifier = Modifier.size(20.dp))
+                Icon(Icons.Outlined.Delete, if (isEs) "Eliminar" else "Remove", modifier = Modifier.size(20.dp))
             }
         }
     }

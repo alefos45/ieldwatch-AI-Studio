@@ -22,7 +22,7 @@ class BleRadio(
     private val onObservation: (Observation) -> Unit,
     private val onError: (String) -> Unit,
 ) {
-    private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     private var scanner: BluetoothLeScanner? = null
     private val running = AtomicBoolean(false)
     private var lastIntensity = ScanIntensity.PERFORMANCE
@@ -78,7 +78,7 @@ class BleRadio(
     fun start(intensity: ScanIntensity) {
         val now = System.currentTimeMillis()
         if (now < nextRetryAt.get()) return
-        val adapter = manager.adapter
+        val adapter = manager?.adapter
         if (adapter == null || !adapter.isEnabled) {
             running.set(false)
             lastError = "Bluetooth is off"

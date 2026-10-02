@@ -55,7 +55,9 @@ object Hunt {
         }
     }
 
-    fun label(cue: HuntCue): String = when (cue) {
+    fun label(cue: HuntCue): String = localizedLabel(cue, false)
+
+    fun localizedLabel(cue: HuntCue, isEs: Boolean): String = if (!isEs) when (cue) {
         HuntCue.VERY_CLOSE -> "Very Close"
         HuntCue.CLOSER -> "Closer"
         HuntCue.FURTHER -> "Further"
@@ -63,9 +65,19 @@ object Hunt {
         HuntCue.WAITING -> "Listening…"
         HuntCue.QUIET -> "Quiet"
         HuntCue.GONE -> "Gone"
+    } else when (cue) {
+        HuntCue.VERY_CLOSE -> "Muy cerca"
+        HuntCue.CLOSER -> "Más cerca"
+        HuntCue.FURTHER -> "Más lejos"
+        HuntCue.SAME -> "Aproximadamente igual"
+        HuntCue.WAITING -> "Escuchando…"
+        HuntCue.QUIET -> "Sin señal"
+        HuntCue.GONE -> "Fuera de alcance"
     }
 
-    fun hint(cue: HuntCue): String = when (cue) {
+    fun hint(cue: HuntCue): String = localizedHint(cue, false)
+
+    fun localizedHint(cue: HuntCue, isEs: Boolean): String = if (!isEs) when (cue) {
         HuntCue.VERY_CLOSE -> "Screaming loud here. Look around — usually in-hand, pocket, or the same bag. Not meters."
         HuntCue.CLOSER -> "Louder than a few seconds ago. Keep walking that way."
         HuntCue.FURTHER -> "Quieter than a few seconds ago. Turn or back up."
@@ -73,6 +85,14 @@ object Hunt {
         HuntCue.WAITING -> "Need a few seconds of packets to compare."
         HuntCue.QUIET -> "No packet for a few seconds. Silent, or behind a wall."
         HuntCue.GONE -> "Left the live set. Randomized BLE often vanishes mid-hunt."
+    } else when (cue) {
+        HuntCue.VERY_CLOSE -> "Señal muy potente aquí. Mira a tu alrededor: suele estar en mano, bolsillo o bolso."
+        HuntCue.CLOSER -> "Más fuerte que hace unos segundos. Sigue caminando en esa dirección."
+        HuntCue.FURTHER -> "Más débil que hace unos segundos. Gira o retrocede."
+        HuntCue.SAME -> "Sin cambios claros aún. Ve más despacio y mantén el teléfono quieto."
+        HuntCue.WAITING -> "Se necesitan unos segundos de paquetes para comparar."
+        HuntCue.QUIET -> "Sin paquetes en los últimos segundos. Silencioso o tras una pared."
+        HuntCue.GONE -> "Salió de la lista activa. BLE aleatorio suele desvanecerse durante la búsqueda."
     }
 
     /**
