@@ -616,6 +616,8 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
         bearingEstimator.reset()
         _bearing.value = Bearing.Unknown
         startRotationSensor()
+        // FASE 4 (Bloque 3): Hunt activa búsqueda → el motor adaptativo fuerza AGGRESSIVE.
+        app.setSearchActive(true)
     }
 
     fun resetHunt() {
@@ -633,6 +635,8 @@ class FieldwatchViewModel(application: Application) : AndroidViewModel(applicati
         bearingEstimator.reset()
         _bearing.value = Bearing.Unknown
         rotationSensor?.stop()
+        // FASE 4 (Bloque 3): fin de búsqueda → el motor adaptativo vuelve a contexto.
+        app.setSearchActive(false)
     }
 
     private fun startRotationSensor() {

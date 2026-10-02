@@ -13,19 +13,24 @@ import app.fieldwatch.data.DeviceStore
 import app.fieldwatch.data.LogStore
 import app.fieldwatch.data.SitStore
 import app.fieldwatch.data.TrainingStore
+import app.fieldwatch.domain.AdaptiveScanPolicy
 import app.fieldwatch.domain.BehaviorFeatures
 import app.fieldwatch.domain.BehavioralClassifier
 import app.fieldwatch.domain.BehavioralKind
+import app.fieldwatch.domain.ContextState
 import app.fieldwatch.domain.CoTravel
 import app.fieldwatch.domain.FilterEngine
 import app.fieldwatch.domain.Geo
 import app.fieldwatch.domain.GpsSample
+import app.fieldwatch.domain.IntensityMode
 import app.fieldwatch.domain.RadioBookmarks
 import app.fieldwatch.domain.RadioDb
 import app.fieldwatch.domain.RadioKind
 import app.fieldwatch.domain.ScanIntensity
 import app.fieldwatch.domain.ScanProfile
 import app.fieldwatch.domain.Sighting
+import app.fieldwatch.radio.ContextTracker
+import app.fieldwatch.radio.DeviceScreenState
 import app.fieldwatch.radio.ScanService
 import app.fieldwatch.radio.TakPublisher
 import kotlinx.coroutines.CoroutineScope
@@ -53,9 +58,17 @@ class FieldwatchApp : Application() {
         private set
     lateinit var training: TrainingStore
         private set
+    /** FASE 4 (Bloque 3): contexto del operador para Adaptive scanning. */
+    lateinit var screenState: DeviceScreenState
+        private set
+    lateinit var contextTracker: ContextTracker
+        private set
     private val filters = FilterEngine()
     private val _arrivals = MutableStateFlow(ArrivalsState())
     val arrivals: StateFlow<ArrivalsState> = _arrivals.asStateFlow()
+    private val _contextState = MutableStateFlow(ContextState())
+    /** Snapshot actual del contexto, espejado desde [contextTracker]. */
+    val contextState: StateFlow<ContextState> = _contextState.asStateFlow()
     @Volatile
     private var wifiLearnPending = false
     @Volatile
@@ -70,8 +83,17 @@ class FieldwatchApp : Application() {
     @Volatile private var behavioralCache: Map<String, BehavioralKind> = emptyMap()
     @Volatile private var behavioralCacheAt: Long = 0L
 
-    /** FASE 4: indica si hay una búsqueda activa (Hunt o similar) que fuerza AGGRESSIVE. */
-    @Volatile var searchActive: Boolean = false
+    /**
+     * FASE 4: búsqueda activa (Hunt o similar) que fuerza AGGRESSIVE.
+     * Solo lectura externa; escribir vía [setSearchActive].
+     */
+    @Volatile
+    var searchActive: Boolean = false
+        private set
+
+    fun setSearchActive(on: Boolean) {
+        searchActive = on
+    }
 
     @Volatile
     var lastFix: Pair<Double, Double>? = null
@@ -101,6 +123,12 @@ class FieldwatchApp : Application() {
             sits.load()
         }
         sits.startFlusher()
+        // FASE 4 (Bloque 3): arrancar contexto antes del scan.
+        screenState = DeviceScreenState(this).also { it.start() }
+        contextTracker = ContextTracker(this, screenState, scope).also { it.start() }
+        scope.launch {
+            contextTracker.state.collect { _contextState.value = it }
+        }
         syncLocationUpdates()
         if (config.settings.alertVoice) alerter.prepareVoice()
         if (config.filter.arrivalsOnly) {
@@ -109,26 +137,20 @@ class FieldwatchApp : Application() {
     }
 
     /**
-     * FASE 4 — STUB TEMPORAL. El Bloque 3 reemplazará este cuerpo con:
-     *   val ctx = contextTracker.current()
-     *   AdaptiveScanPolicy.decide(
-     *       state = ctx,
-     *       mode = settings.intensityMode,
-     *       floor = settings.adaptiveFloor,
-     *       manual = settings.intensity,
-     *       searchActive = searchActive,
-     *   )
-     *
-     * Por ahora devuelve el equivalente manual de [AppSettings.intensity] para
-     * que [ScanService] compile y siga funcionando igual que antes.
+     * FASE 4: perfil de escaneo efectivo.
+     * MANUAL → AppSettings.intensity.
+     * ADAPTIVE → AdaptiveScanPolicy con el contexto del operador y el
+     * floor configurado. AGGRESSIVE se fuerza si [searchActive].
      */
     fun effectiveScanProfile(): ScanProfile {
-        val intensity = config.settings.intensity
-        return when (intensity) {
-            ScanIntensity.SAVER -> ScanProfile.SAVER
-            ScanIntensity.BALANCED -> ScanProfile.BALANCED
-            ScanIntensity.PERFORMANCE -> ScanProfile.PERFORMANCE
-        }
+        val settings = config.settings
+        return AdaptiveScanPolicy.decide(
+            state = _contextState.value,
+            mode = settings.intensityMode,
+            floor = settings.adaptiveFloor,
+            manual = settings.intensity,
+            searchActive = searchActive,
+        )
     }
 
     fun beginArrivals(keepRemembered: Boolean = false) {
