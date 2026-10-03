@@ -1,11 +1,25 @@
 package app.fieldwatch.domain
 
+import app.fieldwatch.data.CatalogStore
+
 /**
- * Well-known Google Fast Pair 24-bit model IDs from public partner / community listings.
+ * Well-known Google Fast Pair 24-bit model IDs.
+ *
+ * Orden de consulta:
+ *   1. CatalogStore (assets/fieldwatch_catalog.json) — 600+ modelos,
+ *      actualizable sin recompilar la app.
+ *   2. Tabla hardcodeada de abajo — respaldo por si el asset no está
+ *      o no se pudo cargar.
+ *
  * Conflicting IDs from other lists are left as the existing Fieldwatch name.
  */
 object FastPairModels {
-    fun name(modelId: Int): String? = table[modelId and 0xFFFFFF]
+    fun name(modelId: Int): String? {
+        // 1. Catálogo externo (más completo, actualizable)
+        CatalogStore.fastPairName(modelId)?.let { return it }
+        // 2. Respaldo hardcodeado
+        return table[modelId and 0xFFFFFF]
+    }
 
     private val table = hashMapOf(
         0x000006 to "Google Pixel Buds",

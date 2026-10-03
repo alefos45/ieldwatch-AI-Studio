@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import app.fieldwatch.alert.Alerter
+import app.fieldwatch.data.CatalogStore
 import app.fieldwatch.data.ConfigStore
 import app.fieldwatch.data.DeviceStore
 import app.fieldwatch.data.LogStore
@@ -116,6 +117,9 @@ class FieldwatchApp : Application() {
         super.onCreate()
         config = ConfigStore(this)
         RadioDb.init(this)
+        // Catálogo externo (Fast Pair / Samsung / OUIs). Opcional:
+        // si el asset no existe, queda vacío y la app sigue con RadioDb.
+        CatalogStore.init(this)
         devices = DeviceStore()
         logs = LogStore(this)
         sits = SitStore(this, scope)
