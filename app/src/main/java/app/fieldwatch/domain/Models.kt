@@ -1035,7 +1035,9 @@ object Palette {
         0xFFB388FF.toInt(),
         0xFFFF8A4C.toInt(),
         0xFFE8EEF2.toInt(),
-        0xFF3D8B6E.toInt(),
+        // FASE 5 (Bloque 2): subido de #3D8B6E (4.36:1) a #52B896 (5.94:1
+        // sobre surface #141A22) para cumplir WCAG AA texto.
+        0xFF52B896.toInt(),
         0xFF5BA3D9.toInt(),
     )
 

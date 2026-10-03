@@ -13,6 +13,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,7 +58,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
-
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,7 +72,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.NavigationBarDefaults
 import app.fieldwatch.ui.component.FieldwatchActionButton
 import app.fieldwatch.ui.component.FieldwatchDropdownField
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import app.fieldwatch.ui.component.FieldwatchSwitch
@@ -98,6 +98,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.invisibleToUser
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -144,6 +149,7 @@ fun FieldwatchRoot(vm: FieldwatchViewModel, onRequestPermissions: () -> Unit) {
         FieldwatchTheme(
             darkTheme = true,
             nightMode = state.settings.nightMode,
+            a11yHighContrast = a11yState.highContrast,
         ) {
             if (!state.settings.disclaimerOk()) {
                 DisclaimerGate(onAccept = vm::acceptDisclaimer)
@@ -258,14 +264,14 @@ private fun PermissionGate(onRequest: () -> Unit, onContinueAnyway: () -> Unit) 
         )
         Button(
             onClick = onRequest,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         ) {
             Text(strings.permissionsBtn)
         }
         androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
         androidx.compose.material3.OutlinedButton(
             onClick = onContinueAnyway,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         ) {
             Text(if (strings.isEs) "Entrar a la app de todos modos" else "Continue anyway")
         }
@@ -280,6 +286,7 @@ private fun FieldwatchShell(
     onRequestPermissions: () -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     val nav = rememberNavController()
     val route = nav.currentBackStackEntryAsState().value?.destination?.route ?: "live"
     val context = LocalContext.current
@@ -297,7 +304,7 @@ private fun FieldwatchShell(
     }
     androidx.compose.runtime.LaunchedEffect(export.share) {
         export.share?.let { intent ->
-            val chooserTitle = if (strings.isEs) {
+            val chooserTitle = if (isEs) {
                 when (export.shareTitle) {
                     "Debrief" -> "Informe de misión"
                     "Debrief PDF" -> "Informe de misión (PDF)"
@@ -317,13 +324,19 @@ private fun FieldwatchShell(
             vm.consumeShare()
         }
     }
-    if (export.active) {
+    // FASE 5 (Bloque 4): AUD-04-01. El diálogo de exportación bloqueaba
+    // la app si el proceso se colgaba. Ahora el operador puede ocultarlo.
+    var hideExportDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(export.active) {
+        if (!export.active) hideExportDialog = false
+    }
+    if (export.active && !hideExportDialog) {
         AlertDialog(
             onDismissRequest = { },
             title = {
                 val m = export.message.lowercase()
                 Text(
-                    if (strings.isEs) {
+                    if (isEs) {
                         when {
                             "sit compare" in m && "pdf" in m -> "Comparar situaciones (PDF)"
                             "sit compare" in m && "ai" in m -> "Exportación IA de comparación"
@@ -352,7 +365,7 @@ private fun FieldwatchShell(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         if (export.message.isBlank()) strings.pleaseWait
-                        else if (strings.isEs) {
+                        else if (isEs) {
                             when {
                                 "writing debrief" in export.message.lowercase() -> "Generando informe de misión…"
                                 "gathering sit" in export.message.lowercase() -> "Recopilando datos de la situación…"
@@ -368,12 +381,18 @@ private fun FieldwatchShell(
                         "sit compare" !in export.message.lowercase()
                     ) {
                         Text(
-                            if (strings.isEs) "El registro en vivo está pausado hasta finalizar. El escaneo continúa."
+                            if (isEs) "El registro en vivo está pausado hasta finalizar. El escaneo continúa."
                             else "Live logging is paused until this finishes. Scanning continues.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Text(
+                        if (isEs) "Puedes ocultar este aviso y seguir usando la app. El export continuará en segundo plano y verás el resultado cuando termine."
+                        else "You can hide this and keep using the app. The export continues in the background and you will see the result when it finishes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     LinearProgressIndicator(
                         progress = { export.progress },
                         modifier = Modifier.fillMaxWidth(),
@@ -385,13 +404,17 @@ private fun FieldwatchShell(
                     )
                 }
             },
-            confirmButton = { },
+            confirmButton = {
+                TextButton(onClick = { hideExportDialog = true }) {
+                    Text(if (isEs) "Ocultar" else "Hide")
+                }
+            },
         )
     }
     if (export.error != null) {
         AlertDialog(
             onDismissRequest = vm::consumeExportNotice,
-            title = { Text(if (strings.isEs) "No se pudo exportar" else (export.errorTitle ?: "Could not export")) },
+            title = { Text(if (isEs) "No se pudo exportar" else (export.errorTitle ?: "Could not export")) },
             text = { Text(export.error ?: "") },
             confirmButton = {
                 TextButton(onClick = vm::consumeExportNotice) { Text(strings.ok) }
@@ -401,10 +424,10 @@ private fun FieldwatchShell(
     if (export.saved) {
         AlertDialog(
             onDismissRequest = vm::consumeExportNotice,
-            title = { Text(if (strings.isEs) "Registro guardado" else "Log saved") },
+            title = { Text(if (isEs) "Registro guardado" else "Log saved") },
             text = {
                 Text(
-                    if (strings.isEs) "El archivo se guardó correctamente en la carpeta seleccionada."
+                    if (isEs) "El archivo se guardó correctamente en la carpeta seleccionada."
                     else "The file was written to the folder you picked. In the system picker, use the menu to choose the SD card if you want it off internal storage."
                 )
             },
@@ -416,10 +439,10 @@ private fun FieldwatchShell(
     if (export.cleared) {
         AlertDialog(
             onDismissRequest = vm::consumeExportNotice,
-            title = { Text(if (strings.isEs) "Registro borrado" else "Log cleared") },
+            title = { Text(if (isEs) "Registro borrado" else "Log cleared") },
             text = {
                 Text(
-                    if (strings.isEs) "Los archivos rotativos fueron eliminados. Las nuevas detecciones iniciarán un registro nuevo."
+                    if (isEs) "Los archivos rotativos fueron eliminados. Las nuevas detecciones iniciarán un registro nuevo."
                     else "Rotated files were deleted. New detections will start a fresh log."
                 )
             },
@@ -460,6 +483,14 @@ private fun FieldwatchShell(
     }
     Box(Modifier.fillMaxSize()) {
     Scaffold(
+        // FASE 5 (Bloque 6): durante el tour de Live, el Scaffold se oculta
+        // a TalkBack para que el foco no se pierda entre los nodos de fondo.
+        // El overlay de LiveChromeTour queda como único subárbol accesible.
+        modifier = if (showTour) {
+            Modifier.semantics { invisibleToUser() }
+        } else {
+            Modifier
+        },
         topBar = {
             if (route != "detail" && route != "hunt") {
                 TopAppBar(
@@ -480,15 +511,24 @@ private fun FieldwatchShell(
                                             vm.focusLiveList()
                                         },
                                     )
+                                }
+                                // FASE 5 (Bloque 6): doble-tap no es descubrible
+                                // para TalkBack sin un contentDescription.
+                                .semantics {
+                                    contentDescription = if (isEs) {
+                                        "Barra de título Fieldwatch. Doble toque vuelve a En vivo y desplaza la lista al principio."
+                                    } else {
+                                        "Fieldwatch title bar. Double tap returns to Live and scrolls the list to top."
+                                    }
                                 },
                         ) {
-                            val strings = LocalAppStrings.current
+                            val stringsTop = LocalAppStrings.current
                             Text(
                                 when {
                                     state.sit.open != null && state.displayPaused ->
-                                        "FIELDWATCH  ·  ${strings.statusSit}  ·  ${strings.statusPaused}"
-                                    state.sit.open != null -> "FIELDWATCH  ·  ${strings.statusSit}"
-                                    state.displayPaused -> "FIELDWATCH  ·  ${strings.statusPaused}"
+                                        "FIELDWATCH  ·  ${stringsTop.statusSit}  ·  ${stringsTop.statusPaused}"
+                                    state.sit.open != null -> "FIELDWATCH  ·  ${stringsTop.statusSit}"
+                                    state.displayPaused -> "FIELDWATCH  ·  ${stringsTop.statusPaused}"
                                     else -> "FIELDWATCH"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
@@ -505,7 +545,12 @@ private fun FieldwatchShell(
                                 val muted = MaterialTheme.colorScheme.onSurfaceVariant
                                 HeaderCount(state.wifiNow, Icons.Outlined.Wifi, "Wi-Fi")
                                 HeaderCount(state.bleNow, Icons.Outlined.Bluetooth, "BLE")
-                                HeaderCount(state.namedNow, Icons.Outlined.Hub, "signatures")
+                                // FASE 5 (Bloque 4): bilingüe.
+                                HeaderCount(
+                                    state.namedNow,
+                                    Icons.Outlined.Hub,
+                                    if (isEs) "firmas" else "signatures",
+                                )
                                 if (state.throttleHint.isNotBlank()) {
                                     Text(
                                         "·  ${state.throttleHint}",
@@ -535,9 +580,9 @@ private fun FieldwatchShell(
                                         Icons.Outlined.Tune
                                     },
                                     if (state.settings.scanControlsExpanded) {
-                                        if (strings.isEs) "Ocultar opciones de vista" else "Hide scan options"
+                                        if (isEs) "Ocultar opciones de vista" else "Hide scan options"
                                     } else {
-                                        if (strings.isEs) "Opciones de visualización (Radar, lista…)" else "Show scan options"
+                                        if (isEs) "Opciones de visualización (Radar, lista…)" else "Show scan options"
                                     },
                                     modifier = Modifier.onGloballyPositioned {
                                         tourTargets = tourTargets.copy(tune = it.boundsInRoot())
@@ -572,10 +617,13 @@ private fun FieldwatchShell(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 1.dp)
-                                .height(48.dp),
+                                // FASE 5 (Bloque 7): antes 48.dp fijo. Con
+                                // fontScale alto los labels se recortaban.
+                                // heightIn deja crecer la barra si hace falta.
+                                .heightIn(min = 48.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                        val strings = LocalAppStrings.current
+                        val stringsBot = LocalAppStrings.current
                         FieldwatchNavTab(
                             weight = 1f,
                             selected = route == "live",
@@ -594,10 +642,10 @@ private fun FieldwatchShell(
                                         route == "live" && state.displayPaused -> Icons.Outlined.PlayArrow
                                         else -> Icons.Outlined.CellTower
                                     },
-                                    if (route == "live" && !state.displayPaused) strings.navPause else strings.navLive,
+                                    if (route == "live" && !state.displayPaused) stringsBot.navPause else stringsBot.navLive,
                                 )
                             },
-                            label = if (route == "live" && !state.displayPaused) strings.navPause else strings.navLive,
+                            label = if (route == "live" && !state.displayPaused) stringsBot.navPause else stringsBot.navLive,
                         )
                         FieldwatchNavTab(
                             weight = 1f,
@@ -605,7 +653,7 @@ private fun FieldwatchShell(
                             onBounds = { tourTargets = tourTargets.copy(filters = it) },
                             onClick = { nav.navigate("filters") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.FilterAlt, null) },
-                            label = strings.navFilters,
+                            label = stringsBot.navFilters,
                         )
                         FieldwatchNavTab(
                             weight = 1.45f,
@@ -613,7 +661,7 @@ private fun FieldwatchShell(
                             onBounds = { tourTargets = tourTargets.copy(signatures = it) },
                             onClick = { nav.navigate("fleets") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.Hub, null) },
-                            label = strings.navSignatures,
+                            label = stringsBot.navSignatures,
                         )
                         FieldwatchNavTab(
                             weight = 1f,
@@ -621,7 +669,7 @@ private fun FieldwatchShell(
                             onBounds = { tourTargets = tourTargets.copy(reports = it) },
                             onClick = { nav.navigate("reports") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.Description, null) },
-                            label = strings.navReports,
+                            label = stringsBot.navReports,
                         )
                         FieldwatchNavTab(
                             weight = 1.05f,
@@ -629,7 +677,7 @@ private fun FieldwatchShell(
                             onBounds = { tourTargets = tourTargets.copy(settings = it) },
                             onClick = { nav.navigate("settings") { launchSingleTop = true } },
                             icon = { Icon(Icons.Outlined.Settings, null) },
-                            label = strings.navSettings,
+                            label = stringsBot.navSettings,
                         )
                         }
                     }
@@ -668,7 +716,7 @@ private fun FieldwatchShell(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        if (strings.isEs) "Permisos no concedidos. Toca aquí para activarlos." else "Radio permissions missing. Tap here to grant.",
+                                        if (isEs) "Permisos no concedidos. Toca aquí para activarlos." else "Radio permissions missing. Tap here to grant.",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onErrorContainer,
                                         modifier = Modifier.weight(1f),
@@ -802,20 +850,24 @@ private fun FieldwatchShell(
                 val device = state.selected
                 val onBack = { nav.popBackStack(); vm.select(null); Unit }
                 if (device == null) {
+                    // FASE 5 (Bloque 4): textos bilingües.
                     Scaffold(
                         topBar = {
                             TopAppBar(
-                                title = { Text("Detail") },
+                                title = { Text(if (isEs) "Detalle" else "Detail") },
                                 navigationIcon = {
                                     IconButton(onClick = onBack) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowBack,
+                                            if (isEs) "Atrás" else "Back",
+                                        )
                                     }
                                 },
                             )
                         },
                     ) { pad ->
                         Text(
-                            "No radio selected.",
+                            if (isEs) "Ninguna radio seleccionada." else "No radio selected.",
                             Modifier.padding(pad).padding(24.dp),
                         )
                     }
@@ -856,13 +908,18 @@ private fun FieldwatchShell(
 
 @Composable
 private fun HeaderCount(n: Int, icon: ImageVector, desc: String) {
+    // FASE 5 (Bloque 6): mergeDescendants une icono + valor para que
+    // TalkBack lea "Wi-Fi 3" en lugar de "Wi-Fi" y "3" por separado.
     Row(
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "$desc $n"
+        },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Icon(
             icon,
-            contentDescription = desc,
+            contentDescription = null,
             modifier = Modifier.size(13.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -891,10 +948,25 @@ private fun RowScope.FieldwatchNavTab(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    // FASE 5:
+    //  - B3: .fillMaxHeight() para que el touch cubra los 48dp de la barra,
+    //        no solo la altura intrínseca del icon+label.
+    //  - B6: selectable(Role.Tab) + semantics role/selected para que
+    //        TalkBack anuncie "pestaña, seleccionada/no seleccionada".
     Column(
         Modifier
             .weight(weight)
-            .clickable(onClick = onClick)
+            .fillMaxHeight()
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.Tab,
+            )
+            .semantics {
+                role = Role.Tab
+                this.selected = selected
+                contentDescription = label
+            }
             .padding(horizontal = 2.dp, vertical = 1.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -1136,6 +1208,9 @@ private fun LiveSessionBar(
     onResetSeen: () -> Unit,
     onStartOverFollow: () -> Unit,
 ) {
+    // FASE 5 (Bloque 4): textos bilingües.
+    val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -1156,12 +1231,12 @@ private fun LiveSessionBar(
                         onClick = onMarkSeen,
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    ) { Text("Mark seen") }
+                    ) { Text(if (isEs) "Marcar vistas" else "Mark seen") }
                     FieldwatchActionButton(
                         onClick = onResetSeen,
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    ) { Text("Reset seen") }
+                    ) { Text(if (isEs) "Restablecer vistas" else "Reset seen") }
                 }
             }
             if (movingWithYou) {
@@ -1169,7 +1244,7 @@ private fun LiveSessionBar(
                     onClick = onStartOverFollow,
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                ) { Text("Start over") }
+                ) { Text(if (isEs) "Empezar de nuevo" else "Start over") }
             }
         }
     }

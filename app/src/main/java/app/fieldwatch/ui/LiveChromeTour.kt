@@ -31,10 +31,14 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import app.fieldwatch.ui.i18n.LocalAppStrings
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
@@ -68,20 +72,33 @@ fun LiveChromeTour(
     onDismiss: () -> Unit,
 ) {
     if (!targets.ready) return
+    val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     val density = LocalDensity.current
     val primary = MaterialTheme.colorScheme.primary
     val holePad = with(density) { 5.dp.toPx() }
+    // FASE 5 (Bloque 6): intro del tour anunciada por TalkBack antes
+    // de recorrer los callouts. Sin esto el overlay arranca mudo.
+    val introText = if (isEs) {
+        "Tour de En vivo. Desliza para escuchar cada paso. Toca Entendido cuando termines."
+    } else {
+        "Live tour. Swipe to hear each step. Tap Got it when you are done."
+    }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .semantics { contentDescription = introText },
+    ) {
         val screenW = constraints.maxWidth.toFloat()
         val screenH = constraints.maxHeight.toFloat()
-        val spots = layoutSpots(targets, density, screenW, screenH)
-        val measuredH = remember { mutableStateMapOf<String, Float>() }
+        val spots = layoutSpots(targets, density, screenW, screenH, isEs)
+        val measuredH = remember { mutableStateMapOf<Int, Float>() }
         val pad = with(density) { 10.dp.toPx() }
-        val fitted = spots.map { spot ->
-            val h = measuredH[spot.title] ?: return@map spot
+        val fitted = spots.mapIndexed { i, spot ->
+            val h = measuredH[i] ?: return@mapIndexed spot
             val box = Rect(spot.box.left, spot.box.top, spot.box.right, spot.box.top + h)
-            val fromY = if (spot.title == "Tune") box.top else box.bottom
+            val fromY = if (i == 0) box.top else box.bottom
             spot.copy(box = box, from = Offset(spot.from.x, fromY))
         }
         val placed = separateBubbles(fitted, pad, with(density) { 8.dp.toPx() })
@@ -93,6 +110,7 @@ fun LiveChromeTour(
         Canvas(
             Modifier
                 .fillMaxSize()
+                .clearAndSetSemantics { }
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
         ) {
             drawRect(Color.Black.copy(alpha = 0.55f))
@@ -106,13 +124,17 @@ fun LiveChromeTour(
                 )
             }
         }
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(
+            Modifier
+                .fillMaxSize()
+                .clearAndSetSemantics { },
+        ) {
             val stroke = with(density) { 2.dp.toPx() }
             placed.forEach { spot ->
                 arrow(spot.from, closestEdge(spot.target, spot.from), primary, stroke)
             }
         }
-        placed.forEach { spot ->
+        placed.forEachIndexed { i, spot ->
             Callout(
                 title = spot.title,
                 body = spot.body,
@@ -120,7 +142,7 @@ fun LiveChromeTour(
                 modifier = Modifier
                     .offset { IntOffset(spot.box.left.roundToInt(), spot.box.top.roundToInt()) }
                     .width(with(density) { spot.box.width.toDp() })
-                    .onSizeChanged { measuredH[spot.title] = it.height.toFloat() },
+                    .onSizeChanged { measuredH[i] = it.height.toFloat() },
             )
         }
         Button(
@@ -128,7 +150,7 @@ fun LiveChromeTour(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset { IntOffset(0, gotItY.roundToInt()) },
-        ) { Text("Got it") }
+        ) { Text(if (isEs) "Entendido" else "Got it") }
     }
 }
 
@@ -168,6 +190,7 @@ private fun layoutSpots(
     density: Density,
     screenW: Float,
     screenH: Float,
+    isEs: Boolean,
 ): List<Spot> {
     val edge = with(density) { 10.dp.toPx() }
     val gap = with(density) { 12.dp.toPx() }
@@ -179,11 +202,32 @@ private fun layoutSpots(
 
     val tune = targets.tune!!
     val tabs = listOf(
-        Triple(targets.pause!!, "Pause", "Freeze the picture. Tap Live again to run."),
-        Triple(targets.filters!!, "Filters", "Who is shown."),
-        Triple(targets.signatures!!, "Signatures", "Pattern catalog."),
-        Triple(targets.reports!!, "Reports", "Debrief, sits, log."),
-        Triple(targets.settings!!, "Settings", "Scan, GPS, TAK."),
+        Triple(
+            targets.pause!!,
+            if (isEs) "Pausar" else "Pause",
+            if (isEs) "Congela la imagen. Toca En vivo de nuevo para reanudar."
+            else "Freeze the picture. Tap Live again to run.",
+        ),
+        Triple(
+            targets.filters!!,
+            if (isEs) "Filtros" else "Filters",
+            if (isEs) "Quién se muestra en la lista." else "Who is shown.",
+        ),
+        Triple(
+            targets.signatures!!,
+            if (isEs) "Firmas" else "Signatures",
+            if (isEs) "Catálogo de patrones." else "Pattern catalog.",
+        ),
+        Triple(
+            targets.reports!!,
+            if (isEs) "Informes" else "Reports",
+            if (isEs) "Informe de misión, situaciones, registro." else "Debrief, sits, log.",
+        ),
+        Triple(
+            targets.settings!!,
+            if (isEs) "Ajustes" else "Settings",
+            if (isEs) "Escaneo, GPS, TAK." else "Scan, GPS, TAK.",
+        ),
     )
     val heights = floatArrayOf(topH, bodyH, bodyH, bodyH, topH)
     val tabTop = tabs.minOf { it.first.top }
@@ -244,7 +288,7 @@ private fun layoutSpots(
     val sigArrowX = tabs[2].first.center.x
     val filterGap = (sigArrowX - boxes[1].right).coerceAtLeast(minGap)
     val reports = boxes[3]
-    var reportsLeft = (sigArrowX + filterGap)
+    val reportsLeft = (sigArrowX + filterGap)
         .coerceAtLeast(sigArrowX + minGap)
         .coerceAtMost((screenW - reports.width - edge).coerceAtLeast(edge))
     boxes[3] = Rect(reportsLeft, reports.top, reportsLeft + reports.width, reports.bottom)
@@ -256,7 +300,7 @@ private fun layoutSpots(
 
     val tuneW = with(density) { 176.dp.toPx() }
     val tuneH = topH
-    var tuneX = (tune.right - tuneW).coerceIn(edge, (screenW - tuneW - edge).coerceAtLeast(edge))
+    val tuneX = (tune.right - tuneW).coerceIn(edge, (screenW - tuneW - edge).coerceAtLeast(edge))
     var tuneY = (tune.bottom + gap)
     var tuneBox = Rect(tuneX, tuneY, tuneX + tuneW, tuneY + tuneH)
     boxes.forEach { other ->
@@ -279,7 +323,14 @@ private fun layoutSpots(
     }
     val tuneFromX = tune.center.x.coerceIn(tuneBox.left + inset, tuneBox.right - inset)
     return listOf(
-        Spot(tune, "Tune", "Display — Radar, list, timeline, hybrid, By class.", tuneBox, Offset(tuneFromX, tuneBox.top)),
+        Spot(
+            tune,
+            if (isEs) "Ajustar" else "Tune",
+            if (isEs) "Visualización — Radar, lista, línea de tiempo, híbrido, por clase."
+            else "Display — Radar, list, timeline, hybrid, By class.",
+            tuneBox,
+            Offset(tuneFromX, tuneBox.top),
+        ),
     ) + tabs.mapIndexed { i, t ->
         Spot(t.first, t.second, t.third, boxes[i], fromOn(boxes[i], t.first, i))
     }
@@ -306,7 +357,7 @@ private fun separateBubbles(spots: List<Spot>, pad: Float, edge: Float): List<Sp
     }
     return spots.mapIndexed { i, s ->
         val b = boxes[i]
-        val fromY = if (s.title == "Tune") b.top else b.bottom
+        val fromY = if (i == 0) b.top else b.bottom
         s.copy(box = b, from = Offset(s.from.x, fromY))
     }
 }

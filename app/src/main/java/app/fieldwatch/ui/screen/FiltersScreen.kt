@@ -5,12 +5,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import app.fieldwatch.ui.component.FieldwatchActionButton
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import app.fieldwatch.ui.component.FieldwatchOutlinedField
 import androidx.compose.material3.Scaffold
@@ -31,7 +30,6 @@ import app.fieldwatch.ui.component.FieldwatchSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.fieldwatch.domain.BehavioralKind
@@ -92,24 +89,22 @@ fun FiltersScreen(state: FieldwatchUi, vm: FieldwatchViewModel) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    state.presets.chunked(2).forEach { row ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            row.forEach { preset ->
-                                PresetChip(
-                                    name = localizePresetName(preset.name, strings.isEs),
-                                    selected = preset.filter == filter,
-                                    onApply = { vm.applyPreset(preset) },
-                                    onLongPress = { pendingDelete = preset },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                state.presets.chunked(2).forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        row.forEach { preset ->
+                            PresetChip(
+                                name = localizePresetName(preset.name, strings.isEs),
+                                selected = preset.filter == filter,
+                                onApply = { vm.applyPreset(preset) },
+                                onLongPress = { pendingDelete = preset },
+                                modifier = Modifier.weight(1f),
+                            )
                         }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
@@ -320,46 +315,42 @@ fun FiltersScreen(state: FieldwatchUi, vm: FieldwatchViewModel) {
                     label = { Text(strings.filterHideThese) },
                 )
             }
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SignatureClass.visible.sortedBy { it.label().lowercase() }.chunked(2).forEach { row ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            row.forEach { kind ->
-                                val on = kind in filter.classes
-                                FieldwatchFilterChip(
-                                    selected = on,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(max = 32.dp),
-                                    onClick = {
-                                        vm.updateFilter { current ->
-                                            val next = current.classes.toMutableSet()
-                                            if (on) next.remove(kind) else next.add(kind)
-                                            current.copy(classes = next)
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            ClassGlyphs.of(kind),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                            kind.localizedLabel(strings.isEs),
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    },
-                                )
-                            }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SignatureClass.visible.sortedBy { it.label().lowercase() }.chunked(2).forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        row.forEach { kind ->
+                            val on = kind in filter.classes
+                            FieldwatchFilterChip(
+                                selected = on,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    vm.updateFilter { current ->
+                                        val next = current.classes.toMutableSet()
+                                        if (on) next.remove(kind) else next.add(kind)
+                                        current.copy(classes = next)
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        ClassGlyphs.of(kind),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        kind.localizedLabel(strings.isEs),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
+                            )
                         }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
@@ -400,44 +391,40 @@ fun FiltersScreen(state: FieldwatchUi, vm: FieldwatchViewModel) {
                     label = { Text(strings.filterHideThese) },
                 )
             }
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    BehavioralKind.entries
-                        .sortedBy { it.label.lowercase() }
-                        .chunked(2)
-                        .forEach { row ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                row.forEach { kind ->
-                                    val on = kind in filter.behavioralKinds
-                                    FieldwatchFilterChip(
-                                        selected = on,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .heightIn(max = 32.dp),
-                                        onClick = {
-                                            vm.updateFilter { current ->
-                                                val next = current.behavioralKinds.toMutableSet()
-                                                if (on) next.remove(kind) else next.add(kind)
-                                                current.copy(behavioralKinds = next)
-                                            }
-                                        },
-                                        label = {
-                                            Text(
-                                                kind.label,
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        },
-                                    )
-                                }
-                                if (row.size == 1) Spacer(Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                BehavioralKind.entries
+                    .sortedBy { it.label.lowercase() }
+                    .chunked(2)
+                    .forEach { row ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            row.forEach { kind ->
+                                val on = kind in filter.behavioralKinds
+                                FieldwatchFilterChip(
+                                    selected = on,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        vm.updateFilter { current ->
+                                            val next = current.behavioralKinds.toMutableSet()
+                                            if (on) next.remove(kind) else next.add(kind)
+                                            current.copy(behavioralKinds = next)
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            kind.label,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    },
+                                )
                             }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
-                }
+                    }
             }
             }
 
@@ -691,26 +678,31 @@ private fun PresetChip(
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        shape = FilterChipDefaults.shape,
-        color = if (selected) spectreSectionFill() else spectreTileFill(),
-        border = BorderStroke(
-            1.dp,
-            if (selected) PhosphorActive.nightIf(LocalNightMode.current) else spectreTileEdge(),
-        ),
-        modifier = modifier
-            .heightIn(max = 32.dp)
-            .combinedClickable(
-                onClick = onApply,
-                onLongClick = onLongPress,
-            ),
+    Box(
+        modifier = modifier.heightIn(min = 48.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            name,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Surface(
+            shape = FilterChipDefaults.shape,
+            color = if (selected) spectreSectionFill() else spectreTileFill(),
+            border = BorderStroke(
+                1.dp,
+                if (selected) PhosphorActive.nightIf(LocalNightMode.current) else spectreTileEdge(),
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onApply,
+                    onLongClick = onLongPress,
+                ),
+        ) {
+            Text(
+                name,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

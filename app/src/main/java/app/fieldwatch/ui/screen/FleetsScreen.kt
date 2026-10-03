@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,25 +31,20 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import app.fieldwatch.ui.component.FieldwatchFilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import app.fieldwatch.ui.component.FieldwatchActionButton
 import app.fieldwatch.ui.component.FieldwatchDropdownField
 import app.fieldwatch.ui.component.FieldwatchOutlinedField
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import app.fieldwatch.ui.component.FieldwatchSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,7 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -81,6 +76,7 @@ import app.fieldwatch.domain.sortedForCatalog
 import app.fieldwatch.ui.NestedTabInsets
 import app.fieldwatch.ui.NestedTopBar
 import app.fieldwatch.ui.i18n.LocalAppStrings
+import app.fieldwatch.ui.i18n.localizedLabel
 import app.fieldwatch.ui.RadioClassBadge
 import app.fieldwatch.ui.FieldwatchUi
 import app.fieldwatch.ui.FieldwatchViewModel
@@ -141,12 +137,16 @@ fun FleetsScreen(
         return
     }
     val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     Scaffold(
         contentWindowInsets = NestedTabInsets,
         topBar = { NestedTopBar("${strings.signaturesTitle} (${state.fleets.size})") },
         floatingActionButton = {
             FloatingActionButton(onClick = vm::beginNewFleet) {
-                Icon(Icons.Outlined.Add, "New signature")
+                Icon(
+                    Icons.Outlined.Add,
+                    if (isEs) "Nueva firma" else "New signature",
+                )
             }
         },
     ) { pad ->
@@ -160,9 +160,17 @@ fun FleetsScreen(
             item {
                 Text(
                     if (sort == SignatureListSort.CLASS) {
-                        "Tap a class to open its signatures. Bookmark = beep. Hide a family on Filters, not here."
+                        if (isEs) {
+                            "Toca una clase para abrir sus firmas. Marcador = pitido. Oculta una familia en Filtros, no aquí."
+                        } else {
+                            "Tap a class to open its signatures. Bookmark = beep. Hide a family on Filters, not here."
+                        }
                     } else {
-                        "Tap to edit. Bookmark = beep when that family appears. Hide a family on Filters, not here."
+                        if (isEs) {
+                            "Toca para editar. Marcador = pitido cuando esa familia aparece. Oculta una familia en Filtros, no aquí."
+                        } else {
+                            "Tap to edit. Bookmark = beep when that family appears. Hide a family on Filters, not here."
+                        }
                     },
                     style = compactLine(12.sp, 14.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -175,12 +183,12 @@ fun FleetsScreen(
                     FieldwatchFilterChip(
                         selected = sort == SignatureListSort.NAME,
                         onClick = { vm.setSignatureListSort(SignatureListSort.NAME) },
-                        label = { Text("Name A–Z") },
+                        label = { Text(if (isEs) "Nombre A–Z" else "Name A–Z") },
                     )
                     FieldwatchFilterChip(
                         selected = sort == SignatureListSort.CLASS,
                         onClick = { vm.setSignatureListSort(SignatureListSort.CLASS) },
-                        label = { Text("Class A–Z") },
+                        label = { Text(if (isEs) "Clase A–Z" else "Class A–Z") },
                     )
                 }
             }
@@ -222,6 +230,7 @@ private fun SignatureClassHeader(
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
+    val isEs = LocalAppStrings.current.isEs
     val accent = Color(Palette.color(colorIndex)).nightIf(LocalNightMode.current)
     Surface(
         onClick = onToggle,
@@ -237,7 +246,9 @@ private fun SignatureClassHeader(
             RadioClassBadge(classKind = kind, accent = accent)
             Spacer(Modifier.width(10.dp))
             Text(
-                kind.label(),
+                // FASE 5 (Bloque 4): bugfix — antes usaba kind.label() (inglés)
+                // incluso en español. Ahora respeta el idioma.
+                kind.localizedLabel(isEs),
                 style = compactLine(16.sp, 18.sp, FontWeight.SemiBold),
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
@@ -254,6 +265,7 @@ private fun SignatureClassHeader(
 
 @Composable
 private fun SignatureRow(fleet: Fleet, state: FieldwatchUi, vm: FieldwatchViewModel) {
+    val isEs = LocalAppStrings.current.isEs
     val color = Color(Palette.color(fleet.colorIndex)).nightIf(LocalNightMode.current)
     val liveHits = state.devices.count { fleet.id in it.fleetIds && !it.gone }
     Surface(
@@ -295,21 +307,25 @@ private fun SignatureRow(fleet: Fleet, state: FieldwatchUi, vm: FieldwatchViewMo
                         )
                     }
                 }
+                val rulesWord = if (isEs) "reglas" else "rules"
+                val liveWord = if (isEs) "en vivo" else "live"
                 Text(
-                    "${fleet.kind.label()} · ${fleet.rules.size} rules · $liveHits live · ${if (fleet.matchAny) "OR" else "AND"}",
+                    // FASE 5 (Bloque 4): kind.label() → localizedLabel(isEs).
+                    "${fleet.kind.localizedLabel(isEs)} · ${fleet.rules.size} $rulesWord · $liveHits $liveWord · ${if (fleet.matchAny) "OR" else "AND"}",
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = compactLine(11.sp, 13.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            // FASE 5 (Bloque 3): quitado .size(36.dp). M3 expande el touch
+            // del IconButton a 48dp automáticamente. Visual 40dp (antes 36).
             IconButton(
                 onClick = { vm.toggleWatchFleet(fleet) },
-                modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     if (vm.isFleetWatched(fleet.id)) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                    "Beep when this signature appears",
+                    if (isEs) "Pitar cuando esta firma aparezca" else "Beep when this signature appears",
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -327,6 +343,8 @@ fun FleetEditor(
     onDelete: (() -> Unit)? = null,
     onOpenDecode: (Fleet) -> Unit = {},
 ) {
+    val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     var fleet by remember(initial.id) { mutableStateOf(initial) }
     var confirmDelete by remember { mutableStateOf(false) }
     LaunchedEffect(initial.decode) {
@@ -336,9 +354,21 @@ fun FleetEditor(
         contentWindowInsets = NestedTabInsets,
         topBar = {
             NestedTopBar(
-                title = if (isNew) "New signature" else "Edit signature",
-                navigationIcon = { TextButton(onClick = onCancel) { Text("Cancel") } },
-                actions = { TextButton(onClick = { onSave(fleet) }) { Text("Save") } },
+                title = if (isNew) {
+                    if (isEs) "Nueva firma" else "New signature"
+                } else {
+                    if (isEs) "Editar firma" else "Edit signature"
+                },
+                navigationIcon = {
+                    TextButton(onClick = onCancel) {
+                        Text(if (isEs) "Cancelar" else "Cancel")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { onSave(fleet) }) {
+                        Text(if (isEs) "Guardar" else "Save")
+                    }
+                },
             )
         },
     ) { pad ->
@@ -350,34 +380,50 @@ fun FleetEditor(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionCard("Identity") {
-            FieldwatchOutlinedField(fleet.name, { fleet = fleet.copy(name = it) }, "Name")
+            SectionCard(if (isEs) "Identidad" else "Identity") {
+            FieldwatchOutlinedField(
+                fleet.name,
+                { fleet = fleet.copy(name = it) },
+                if (isEs) "Nombre" else "Name",
+            )
             FieldwatchOutlinedField(
                 fleet.notes,
                 { fleet = fleet.copy(notes = it) },
-                "Notes",
-                supportingText = "Shows on radio detail for matching radios, and in Share / AI Export. Not Extra attention — no Live “!” and not the amber card.",
+                if (isEs) "Notas" else "Notes",
+                supportingText = if (isEs) {
+                    "Aparece en el detalle de radios coincidentes, y en Compartir / Exportación IA. No es Atención especial — no hay “!” en En vivo ni tarjeta ámbar."
+                } else {
+                    "Shows on radio detail for matching radios, and in Share / AI Export. Not Extra attention — no Live “!” and not the amber card."
+                },
                 singleLine = false,
                 minLines = 2,
             )
             FieldwatchOutlinedField(
                 fleet.attentionNote,
                 { fleet = fleet.copy(attentionNote = it) },
-                "Extra attention",
-                supportingText = "Optional. If this is not empty, matching radios get a “!” on Live, this amber card on detail, and a line in Debrief. Separate from Notes above.",
+                if (isEs) "Atención especial" else "Extra attention",
+                supportingText = if (isEs) {
+                    "Opcional. Si no está vacío, las radios coincidentes reciben un “!” en En vivo, esta tarjeta ámbar en el detalle, y una línea en el Informe. Separado de Notas arriba."
+                } else {
+                    "Optional. If this is not empty, matching radios get a “!” on Live, this amber card on detail, and a line in Debrief. Separate from Notes above."
+                },
                 singleLine = false,
                 minLines = 3,
             )
             }
 
-            SectionCard("Matching") {
+            SectionCard(if (isEs) "Coincidencia" else "Matching") {
             var classMenu by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(classMenu, { classMenu = it }) {
-                FieldwatchDropdownField("Class", fleet.kind.label(), classMenu)
+                FieldwatchDropdownField(
+                    if (isEs) "Clase" else "Class",
+                    fleet.kind.localizedLabel(isEs),
+                    classMenu,
+                )
                 ExposedDropdownMenu(classMenu, { classMenu = false }) {
                     SignatureClass.visible.sortedBy { it.label().lowercase() }.forEach { kind ->
                         DropdownMenuItem(
-                            text = { Text(kind.label()) },
+                            text = { Text(kind.localizedLabel(isEs)) },
                             onClick = {
                                 fleet = fleet.copy(kind = kind)
                                 classMenu = false
@@ -387,47 +433,60 @@ fun FleetEditor(
                 }
             }
             Text(
-                "Filters → Show only / Hide these. Class sits (Finder tags, Cameras, …) are those chips — Save current as… if you want a preset.",
+                if (isEs) {
+                    "Filtros → Mostrar solo / Ocultar estas. Las clases (Rastreadores, Cámaras, …) son esos chips — Guardar actual como… si quieres un preset."
+                } else {
+                    "Filters → Show only / Hide these. Class sits (Finder tags, Cameras, …) are those chips — Save current as… if you want a preset."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Match any rule (OR)", Modifier.weight(1f))
+                Text(if (isEs) "Coincidir cualquier regla (OR)" else "Match any rule (OR)", Modifier.weight(1f))
                 FieldwatchSwitch(fleet.matchAny, { fleet = fleet.copy(matchAny = it) })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Cluster by OUI", Modifier.weight(1f))
+                Text(if (isEs) "Agrupar por OUI" else "Cluster by OUI", Modifier.weight(1f))
                 FieldwatchSwitch(fleet.clusterByOui, { fleet = fleet.copy(clusterByOui = it) })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Sequential MACs", Modifier.weight(1f))
+                Text(if (isEs) "MACs secuenciales" else "Sequential MACs", Modifier.weight(1f))
                 FieldwatchSwitch(fleet.sequentialMac, { fleet = fleet.copy(sequentialMac = it) })
             }
             FieldwatchOutlinedField(
                 fleet.minPeers.toString(),
                 { fleet = fleet.copy(minPeers = it.toIntOrNull() ?: 0) },
-                "Min peers (0 = off)",
+                if (isEs) "Peers mínimos (0 = off)" else "Min peers (0 = off)",
             )
             FieldwatchOutlinedField(
                 fleet.peerWindowSec.toString(),
                 { fleet = fleet.copy(peerWindowSec = it.toIntOrNull() ?: 60) },
-                "Peer window (seconds)",
+                if (isEs) "Ventana de peers (segundos)" else "Peer window (seconds)",
             )
             }
 
-            SectionCard("Color") {
+            SectionCard(if (isEs) "Color" else "Color") {
             ColorPicker(fleet.colorIndex) { fleet = fleet.copy(colorIndex = it) }
             Text(
-                "Stock colors are by class (red pentest, amber cameras/ALPR, purple phones/tags, cyan wearables, green mesh, orange audio/glasses, teal in-car/vehicle). Change any row.",
+                if (isEs) {
+                    "Los colores stock son por clase (rojo pentest, ámbar cámaras/ALPR, púrpura teléfonos/tags, cian wearables, verde mesh, naranja audio/gafas, verde azulado en coche/vehículo). Puedes cambiar cualquiera."
+                } else {
+                    "Stock colors are by class (red pentest, amber cameras/ALPR, purple phones/tags, cyan wearables, green mesh, orange audio/glasses, teal in-car/vehicle). Change any row."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             }
 
-            SectionCard("Rules") {
+            SectionCard(if (isEs) "Reglas" else "Rules") {
             Text(
-                "Each rule has its own switch. Off keeps the rule but it does not match. " +
-                    "Use that to mute noisy OUIs or names on one signature without deleting them.",
+                if (isEs) {
+                    "Cada regla tiene su propio interruptor. Desactivada la regla se conserva pero no coincide. " +
+                        "Úsalo para silenciar OUIs o nombres ruidosos en una firma sin borrarlos."
+                } else {
+                    "Each rule has its own switch. Off keeps the rule but it does not match. " +
+                        "Use that to mute noisy OUIs or names on one signature without deleting them."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -449,12 +508,12 @@ fun FleetEditor(
                     fleet = fleet.copy(rules = fleet.rules + MatchRule(RuleKind.OUI, text = ""))
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Add rule") }
+            ) { Text(if (isEs) "Añadir regla" else "Add rule") }
             }
 
             if (fleet.canHaveBleDecode()) {
                 val decodeCount = fleet.decode?.fields?.size ?: 0
-                SectionCard("Decode fields") {
+                SectionCard(if (isEs) "Campos de decodificación" else "Decode fields") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -462,7 +521,11 @@ fun FleetEditor(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        if (decodeCount == 0) "None" else "$decodeCount fields",
+                        if (decodeCount == 0) {
+                            if (isEs) "Ninguno" else "None"
+                        } else {
+                            if (isEs) "$decodeCount campos" else "$decodeCount fields"
+                        },
                         Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyLarge,
                     )
@@ -473,7 +536,11 @@ fun FleetEditor(
                     )
                 }
                 Text(
-                    "Optional. After this signature matches, map cleartext BLE bytes to labels. Encrypted payloads stay hex.",
+                    if (isEs) {
+                        "Opcional. Después de que esta firma coincida, mapea bytes BLE en claro a etiquetas. Los payloads cifrados quedan en hex."
+                    } else {
+                        "Optional. After this signature matches, map cleartext BLE bytes to labels. Encrypted payloads stay hex."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -486,7 +553,7 @@ fun FleetEditor(
                 ) {
                     Icon(Icons.Outlined.Delete, null)
                     Spacer(Modifier.padding(4.dp))
-                    Text("Delete signature")
+                    Text(if (isEs) "Eliminar firma" else "Delete signature")
                 }
             }
         }
@@ -494,13 +561,21 @@ fun FleetEditor(
     if (confirmDelete && onDelete != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this signature?") },
+            title = { Text(if (isEs) "¿Eliminar esta firma?" else "Delete this signature?") },
             text = {
                 Text(
                     if (initial.builtIn) {
-                        "“${fleet.name}” is a built-in signature. Deleting it removes matching, its bookmark, and filter chips. Restore default signatures in Settings will bring the stock set back."
+                        if (isEs) {
+                            "“${fleet.name}” es una firma de fábrica. Al eliminarla se pierden las coincidencias, su marcador y los chips de filtro. Restablecer firmas predeterminadas en Ajustes recupera el catálogo stock."
+                        } else {
+                            "“${fleet.name}” is a built-in signature. Deleting it removes matching, its bookmark, and filter chips. Restore default signatures in Settings will bring the stock set back."
+                        }
                     } else {
-                        "“${fleet.name}” will be removed. Matching, its bookmark, and filter chips go with it. This cannot be undone."
+                        if (isEs) {
+                            "“${fleet.name}” será eliminada. Las coincidencias, su marcador y los chips de filtro se van con ella. Esta acción no se puede deshacer."
+                        } else {
+                            "“${fleet.name}” will be removed. Matching, its bookmark, and filter chips go with it. This cannot be undone."
+                        }
                     },
                 )
             },
@@ -508,10 +583,12 @@ fun FleetEditor(
                 TextButton(onClick = {
                     confirmDelete = false
                     onDelete()
-                }) { Text("Delete") }
+                }) { Text(if (isEs) "Eliminar" else "Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text(if (isEs) "Cancelar" else "Cancel")
+                }
             },
         )
     }
@@ -519,16 +596,24 @@ fun FleetEditor(
 
 @Composable
 private fun ColorPicker(selected: Int, onSelect: (Int) -> Unit) {
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Palette.fleet.forEachIndexed { index, argb ->
-                val on = index == selected
-                val fill = Color(argb).nightIf(LocalNightMode.current)
+    // FASE 5 (Bloque 3): touch 48dp, visual 36dp. El click va en el Box
+    // externo; la Surface interna solo dibuja. Look idéntico al original.
+    val isEs = LocalAppStrings.current.isEs
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Palette.fleet.forEachIndexed { index, argb ->
+            val on = index == selected
+            val fill = Color(argb).nightIf(LocalNightMode.current)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clickable { onSelect(index) },
+                contentAlignment = Alignment.Center,
+            ) {
                 Surface(
-                    onClick = { onSelect(index) },
                     shape = RoundedCornerShape(8.dp),
                     color = fill,
                     border = BorderStroke(
@@ -540,14 +625,14 @@ private fun ColorPicker(selected: Int, onSelect: (Int) -> Unit) {
                         },
                     ),
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .height(36.dp),
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (on) {
                             Icon(
                                 Icons.Outlined.Check,
-                                contentDescription = "Selected color",
+                                contentDescription = if (isEs) "Color seleccionado" else "Selected color",
                                 tint = if (fill.luminance() > 0.45f) {
                                     Color(0xFF12171C)
                                 } else {
@@ -566,6 +651,7 @@ private fun ColorPicker(selected: Int, onSelect: (Int) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RuleEditor(rule: MatchRule, onChange: (MatchRule) -> Unit, onDelete: () -> Unit) {
+    val isEs = LocalAppStrings.current.isEs
     var expanded by remember { mutableStateOf(false) }
     Column(
         Modifier
@@ -584,17 +670,29 @@ private fun RuleEditor(rule: MatchRule, onChange: (MatchRule) -> Unit, onDelete:
                     .weight(1f)
                     .padding(start = 8.dp, end = 4.dp),
             ) {
-                FieldwatchDropdownField("Kind", ruleKindLabel(rule.kind), expanded)
+                FieldwatchDropdownField(
+                    if (isEs) "Tipo" else "Kind",
+                    ruleKindLabel(rule.kind, isEs),
+                    expanded,
+                )
                 ExposedDropdownMenu(expanded, { expanded = false }) {
                     RuleKind.entries.forEach { kind ->
-                        DropdownMenuItem(text = { Text(ruleKindLabel(kind)) }, onClick = {
-                            onChange(rule.copy(kind = kind))
-                            expanded = false
-                        })
+                        DropdownMenuItem(
+                            text = { Text(ruleKindLabel(kind, isEs)) },
+                            onClick = {
+                                onChange(rule.copy(kind = kind))
+                                expanded = false
+                            },
+                        )
                     }
                 }
             }
-            IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, "Delete rule") }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Outlined.Delete,
+                    if (isEs) "Eliminar regla" else "Delete rule",
+                )
+            }
         }
         Column(
             Modifier.padding(top = 12.dp, start = 8.dp),
@@ -605,7 +703,7 @@ private fun RuleEditor(rule: MatchRule, onChange: (MatchRule) -> Unit, onDelete:
                 FieldwatchOutlinedField(
                     rule.text,
                     { onChange(rule.copy(text = it)) },
-                    "Value",
+                    if (isEs) "Valor" else "Value",
                 )
             }
             RuleKind.MANUFACTURER_ID -> {
@@ -615,7 +713,7 @@ private fun RuleEditor(rule: MatchRule, onChange: (MatchRule) -> Unit, onDelete:
                         val parsed = it.removePrefix("0x").removePrefix("0X").toIntOrNull(16) ?: 0
                         onChange(rule.copy(companyId = parsed))
                     },
-                    "Company ID hex",
+                    if (isEs) "Company ID hex" else "Company ID hex",
                 )
             }
             RuleKind.MANUFACTURER_DATA -> {
@@ -625,50 +723,81 @@ private fun RuleEditor(rule: MatchRule, onChange: (MatchRule) -> Unit, onDelete:
                         val parsed = it.removePrefix("0x").removePrefix("0X").toIntOrNull(16) ?: 0
                         onChange(rule.copy(companyId = parsed))
                     },
-                    "Company ID hex",
+                    if (isEs) "Company ID hex" else "Company ID hex",
                 )
                 FieldwatchOutlinedField(
                     rule.dataPrefixHex,
                     { onChange(rule.copy(dataPrefixHex = it)) },
-                    "Data prefix hex",
+                    if (isEs) "Prefijo de datos hex" else "Data prefix hex",
                 )
             }
             RuleKind.SERVICE_DATA -> {
                 FieldwatchOutlinedField(
                     rule.text,
                     { onChange(rule.copy(text = it)) },
-                    "Service UUID (empty = any, contains)",
+                    if (isEs) "Service UUID (vacío = cualquiera, contiene)"
+                    else "Service UUID (empty = any, contains)",
                 )
                 FieldwatchOutlinedField(
                     rule.dataPrefixHex,
                     { onChange(rule.copy(dataPrefixHex = it)) },
-                    if (rule.text.isBlank()) "Contains hex" else "Data prefix hex",
+                    if (rule.text.isBlank()) {
+                        if (isEs) "Contiene hex" else "Contains hex"
+                    } else {
+                        if (isEs) "Prefijo de datos hex" else "Data prefix hex"
+                    },
                 )
             }
             RuleKind.RADIO_KIND -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Wi-Fi", Modifier.padding(end = 8.dp))
-                    FieldwatchSwitch(rule.radio != RadioKind.BLE, { onChange(rule.copy(radio = if (it) RadioKind.WIFI else RadioKind.BLE)) })
+                    FieldwatchSwitch(
+                        rule.radio != RadioKind.BLE,
+                        { onChange(rule.copy(radio = if (it) RadioKind.WIFI else RadioKind.BLE)) },
+                    )
                 }
             }
-            RuleKind.HIDDEN_SSID -> Text("Matches hidden SSIDs", style = MaterialTheme.typography.bodySmall)
+            RuleKind.HIDDEN_SSID -> Text(
+                if (isEs) "Coincide con SSIDs ocultos" else "Matches hidden SSIDs",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         }
     }
 }
 
-private fun ruleKindLabel(kind: RuleKind): String = when (kind) {
-    RuleKind.OUI -> "OUI"
-    RuleKind.MAC_PREFIX -> "MAC prefix"
-    RuleKind.NAME_CONTAINS -> "Name contains"
-    RuleKind.NAME_GLOB -> "Name glob"
-    RuleKind.SERVICE_UUID -> "Service UUID"
-    RuleKind.SERVICE_DATA -> "Service data"
-    RuleKind.MANUFACTURER_ID -> "Manufacturer ID"
-    RuleKind.MANUFACTURER_DATA -> "Manufacturer data"
-    RuleKind.RADIO_KIND -> "Radio kind"
-    RuleKind.HIDDEN_SSID -> "Hidden SSID"
-    RuleKind.VENDOR_IE_OUI -> "Vendor IE OUI"
+/**
+ * FASE 5 (Bloque 4): antes devolvía siempre inglés. Ahora recibe [isEs]
+ * para poder traducir las etiquetas de cada tipo de regla.
+ */
+private fun ruleKindLabel(kind: RuleKind, isEs: Boolean): String = if (!isEs) {
+    when (kind) {
+        RuleKind.OUI -> "OUI"
+        RuleKind.MAC_PREFIX -> "MAC prefix"
+        RuleKind.NAME_CONTAINS -> "Name contains"
+        RuleKind.NAME_GLOB -> "Name glob"
+        RuleKind.SERVICE_UUID -> "Service UUID"
+        RuleKind.SERVICE_DATA -> "Service data"
+        RuleKind.MANUFACTURER_ID -> "Manufacturer ID"
+        RuleKind.MANUFACTURER_DATA -> "Manufacturer data"
+        RuleKind.RADIO_KIND -> "Radio kind"
+        RuleKind.HIDDEN_SSID -> "Hidden SSID"
+        RuleKind.VENDOR_IE_OUI -> "Vendor IE OUI"
+    }
+} else {
+    when (kind) {
+        RuleKind.OUI -> "OUI"
+        RuleKind.MAC_PREFIX -> "Prefijo MAC"
+        RuleKind.NAME_CONTAINS -> "Nombre contiene"
+        RuleKind.NAME_GLOB -> "Nombre glob"
+        RuleKind.SERVICE_UUID -> "Service UUID"
+        RuleKind.SERVICE_DATA -> "Service data"
+        RuleKind.MANUFACTURER_ID -> "ID de fabricante"
+        RuleKind.MANUFACTURER_DATA -> "Datos de fabricante"
+        RuleKind.RADIO_KIND -> "Tipo de radio"
+        RuleKind.HIDDEN_SSID -> "SSID oculto"
+        RuleKind.VENDOR_IE_OUI -> "Vendor IE OUI"
+    }
 }
 
 private fun compactLine(

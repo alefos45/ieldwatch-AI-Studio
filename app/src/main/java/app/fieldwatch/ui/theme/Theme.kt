@@ -22,6 +22,19 @@ val Night = Color(0xFF0B0F14)
 val Panel = Color(0xFF141A22)
 val Panel2 = Color(0xFF1B232D)
 
+/**
+ * FASE 5 (Bloque 2): outline subido de #2A3340 (1.44:1) a #5E6874 (3.51:1
+ * sobre background) para cumplir WCAG AA non-text. Se aplica a Divider,
+ * OutlinedTextField y todos los bordes derivados (spectreTileEdge).
+ */
+private val DarkOutline = Color(0xFF5E6874)
+
+/**
+ * FASE 5 (Bloque 2): outline night subido de #5A3030 (1.78:1) a #944E4E
+ * (3.37:1 sobre fondo #0B0808). Mismo rol que DarkOutline pero en rojo.
+ */
+private val NightOutline = Color(0xFF944E4E)
+
 private val DarkColors = darkColorScheme(
     primary = Phosphor,
     onPrimary = Color(0xFF003820),
@@ -36,7 +49,7 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFD5DCE3),
     surfaceVariant = Panel2,
     onSurfaceVariant = Color(0xFF9AA6B2),
-    outline = Color(0xFF2A3340),
+    outline = DarkOutline,
     error = SignalRed,
 )
 
@@ -58,8 +71,64 @@ private val NightColors = darkColorScheme(
     onSurface = Color(0xFFFFC9C9),
     surfaceVariant = Color(0xFF1E1414),
     onSurfaceVariant = Color(0xFFC48A8A),
-    outline = Color(0xFF5A3030),
+    outline = NightOutline,
     error = Color(0xFFFF7A7A),
+)
+
+/**
+ * FASE 5 (Bloque 2): esquema de alto contraste para uso bajo sol directo.
+ * Se activa con Settings → Apariencia → Alto contraste (a11yHighContrast).
+ *
+ * Objetivos:
+ *  - Texto en cualquier superficie: ≥ 12:1 (AAA holgado)
+ *  - Non-text (outline, bordes): ≥ 4.5:1
+ *  - background vs surface: separación visible
+ *
+ * Diferencias frente a DarkColors:
+ *  - background pasa a negro puro
+ *  - surface / surfaceVariant suben
+ *  - onSurfaceVariant pasa a #C8D2DC (10.6:1 sobre surface)
+ *  - outline pasa a #6E7886 (4.86:1 sobre fondo negro)
+ *  - onSurface pasa a #E8EEF2
+ */
+private val HighContrastDarkColors = darkColorScheme(
+    primary = Phosphor,
+    onPrimary = Color(0xFF003820),
+    primaryContainer = Color(0xFF163326),
+    onPrimaryContainer = Phosphor,
+    secondary = Amber,
+    onSecondary = Color(0xFF2A1A00),
+    tertiary = Cyan,
+    background = Color(0xFF000000),
+    onBackground = Color(0xFFE8EEF2),
+    surface = Color(0xFF1A2029),
+    onSurface = Color(0xFFE8EEF2),
+    surfaceVariant = Color(0xFF242C38),
+    onSurfaceVariant = Color(0xFFC8D2DC),
+    outline = Color(0xFF6E7886),
+    error = SignalRed,
+)
+
+/**
+ * FASE 5 (Bloque 2): alto contraste + modo nocturno. Rojo sobre negro puro.
+ * Sube onSurfaceVariant y outline respecto a NightColors normal.
+ */
+private val HighContrastNightColors = darkColorScheme(
+    primary = Color(0xFFFF7070),
+    onPrimary = Color(0xFF2A0808),
+    primaryContainer = Color(0xFF3A1212),
+    onPrimaryContainer = Color(0xFFFF9A9A),
+    secondary = Color(0xFFE88888),
+    onSecondary = Color(0xFF2A0808),
+    tertiary = Color(0xFFD47A7A),
+    background = Color(0xFF000000),
+    onBackground = Color(0xFFFFD8D8),
+    surface = Color(0xFF1A0E0E),
+    onSurface = Color(0xFFFFD8D8),
+    surfaceVariant = Color(0xFF261616),
+    onSurfaceVariant = Color(0xFFE0A8A8),
+    outline = Color(0xFFA55A5A),
+    error = Color(0xFFFF9090),
 )
 
 private val LightColors = lightColorScheme(
@@ -84,13 +153,21 @@ val Mono = TextStyle(
     letterSpacing = 0.3.sp,
 )
 
+/**
+ * FASE 5 (Bloque 2): `a11yHighContrast` selecciona esquemas con outline y
+ * onSurfaceVariant subidos para uso bajo sol directo. Es independiente de
+ * `nightMode` — las dos combinaciones están definidas.
+ */
 @Composable
 fun FieldwatchTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     nightMode: Boolean = false,
+    a11yHighContrast: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val scheme = when {
+        a11yHighContrast && nightMode -> HighContrastNightColors
+        a11yHighContrast -> HighContrastDarkColors
         nightMode -> NightColors
         darkTheme -> DarkColors
         else -> LightColors

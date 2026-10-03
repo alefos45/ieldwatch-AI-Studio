@@ -93,6 +93,15 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+    // FASE Tests: Robolectric necesita acceso a los recursos Android
+    // (assets, strings, layouts) para shadow-ear el runtime. Sin esto,
+    // cualquier test que use ApplicationProvider falla con
+    // "Resources.NotFoundException" o "AssetManager not mocked".
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -112,8 +121,21 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // --- Test unitarios (JVM, sin device) -----------------------------
     testImplementation("junit:junit:4.13.2")
-    // Real org.json on the JVM test classpath; the android.jar bundled JSONObject is a stub.
+    // JSONObject real en el classpath de tests JVM; el android.jar trae
+    // un stub que revienta cualquier test que use org.json directamente.
     testImplementation("org.json:json:20240303")
+    // runTest + helpers de coroutines para testear TrainingStore.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    // Robolectric 4.14 es la primera versión que soporta compileSdk=35.
+    // Versiones < 4.14 solo llegan hasta SDK 34 y fallan al arrancar el
+    // RuntimeEnvironment en tests.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    // ApplicationProvider.getApplicationContext() para los tests que
+    // necesitan un Context real (TrainingStore, ConfigStore, etc.).
+    testImplementation("androidx.test:core:1.6.1")
 }

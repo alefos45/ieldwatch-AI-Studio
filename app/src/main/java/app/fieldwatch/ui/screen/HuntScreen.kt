@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +59,7 @@ import app.fieldwatch.domain.Hunt
 import app.fieldwatch.domain.HuntCue
 import app.fieldwatch.domain.Palette
 import app.fieldwatch.ui.FieldwatchViewModel
+import app.fieldwatch.ui.a11y.LocalA11yState
 import app.fieldwatch.ui.component.Sparkline
 import app.fieldwatch.ui.i18n.AppStrings
 import app.fieldwatch.ui.i18n.LocalAppStrings
@@ -124,6 +127,7 @@ fun HuntScreen(
     val now = System.currentTimeMillis()
     val heardAgo = if (hunt.lastSeen > 0L) ((now - hunt.lastSeen) / 1000L).coerceAtLeast(0L) else null
     val strings = LocalAppStrings.current
+    val isEs = strings.isEs
 
     Scaffold(
         topBar = {
@@ -134,7 +138,10 @@ fun HuntScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            if (isEs) "Atrás" else "Back",
+                        )
                     }
                 },
             )
@@ -169,7 +176,7 @@ fun HuntScreen(
                         Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(if (strings.isEs) "Pitido" else "Beep", Modifier.weight(1f))
+                        Text(if (isEs) "Pitido" else "Beep", Modifier.weight(1f))
                         FieldwatchSwitch(
                             huntBeep,
                             { on ->
@@ -182,7 +189,7 @@ fun HuntScreen(
                         Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(if (strings.isEs) "Vibración" else "Vibrate", Modifier.weight(1f))
+                        Text(if (isEs) "Vibración" else "Vibrate", Modifier.weight(1f))
                         FieldwatchSwitch(
                             huntVibrate,
                             { on ->
@@ -209,7 +216,7 @@ fun HuntScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    Hunt.localizedLabel(hunt.cue, strings.isEs),
+                    Hunt.localizedLabel(hunt.cue, isEs),
                     color = cueColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 32.sp,
@@ -238,7 +245,7 @@ fun HuntScreen(
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Text(
-                    Hunt.localizedHint(hunt.cue, strings.isEs),
+                    Hunt.localizedHint(hunt.cue, isEs),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -255,7 +262,7 @@ fun HuntScreen(
                 color = accent,
             )
             Text(
-                rssi?.let { DeviceExplain.rssiExplain(it) } ?: if (strings.isEs) "sin RSSI activo" else "no live RSSI",
+                rssi?.let { DeviceExplain.rssiExplain(it) } ?: if (isEs) "sin RSSI activo" else "no live RSSI",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -267,9 +274,9 @@ fun HuntScreen(
             )
             Text(
                 when {
-                    heardAgo == null -> if (strings.isEs) "visto por última vez  —" else "last heard  —"
-                    heardAgo < 60L -> if (strings.isEs) "visto hace ${heardAgo}s" else "last heard ${heardAgo}s ago"
-                    else -> if (strings.isEs) "visto hace ${heardAgo / 60L}m" else "last heard ${heardAgo / 60L}m ago"
+                    heardAgo == null -> if (isEs) "visto por última vez  —" else "last heard  —"
+                    heardAgo < 60L -> if (isEs) "visto hace ${heardAgo}s" else "last heard ${heardAgo}s ago"
+                    else -> if (isEs) "visto hace ${heardAgo / 60L}m" else "last heard ${heardAgo / 60L}m ago"
                 },
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.labelMedium,
@@ -313,6 +320,13 @@ private fun bearingLabel(b: Bearing, sensorOk: Boolean, strings: AppStrings): St
     }
 }
 
+/**
+ * FASE 5 (Bloques 6 y 7):
+ *  - B6: el Canvas recibe `contentDescription` con el cue + bearing para que
+ *        TalkBack anuncie el estado de la búsqueda. Antes era un nodo mudo.
+ *  - B7: si `a11yReduceMotion` está activo, la animación infinita se congela
+ *        en t=0. Los pings quedan estáticos pero siguen dibujados.
+ */
 @Composable
 private fun HuntNeedle(
     cue: HuntCue,
@@ -322,6 +336,9 @@ private fun HuntNeedle(
     youLabel: String = "YOU",
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalAppStrings.current
+    val isEs = strings.isEs
+    val reduceMotion = LocalA11yState.current.reduceMotion
     val period = when (cue) {
         HuntCue.VERY_CLOSE -> 700
         HuntCue.CLOSER -> 900
@@ -330,15 +347,22 @@ private fun HuntNeedle(
         HuntCue.WAITING -> 1800
         HuntCue.QUIET, HuntCue.GONE -> 2400
     }
-    val t by rememberInfiniteTransition(label = "huntNeedle").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(period, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "huntNeedleT",
-    )
+    val t: Float
+    if (reduceMotion) {
+        t = 0f
+    } else {
+        val infinite = rememberInfiniteTransition(label = "huntNeedle")
+        val animated by infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(period, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "huntNeedleT",
+        )
+        t = animated
+    }
     val youColor = MaterialTheme.colorScheme.onSurface
     val ringIdle = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val measurer = rememberTextMeasurer()
@@ -348,7 +372,29 @@ private fun HuntNeedle(
         fontWeight = FontWeight.Bold,
         fontFamily = FontFamily.Monospace,
     )
-    Canvas(modifier.fillMaxWidth()) {
+    // FASE 5 (Bloque 6): contentDescription para TalkBack.
+    val a11yLabel = buildString {
+        append(Hunt.localizedLabel(cue, isEs))
+        if (!bearing.relativeDeg.isNaN() && bearing.cue != BearingCue.UNKNOWN) {
+            append(". ")
+            append(
+                when (bearing.cue) {
+                    BearingCue.AHEAD -> strings.bearingAhead
+                    BearingCue.BEHIND -> strings.bearingBehind
+                    BearingCue.SLIGHT_LEFT -> strings.bearingSlightLeft
+                    BearingCue.SLIGHT_RIGHT -> strings.bearingSlightRight
+                    BearingCue.LEFT -> strings.bearingTurnLeft
+                    BearingCue.RIGHT -> strings.bearingTurnRight
+                    BearingCue.UNKNOWN -> strings.bearingTurnInPlace
+                },
+            )
+        }
+    }
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = a11yLabel },
+    ) {
         val c = Offset(size.width / 2f, size.height / 2f)
         val maxR = min(size.width, size.height) * 0.42f
         if (maxR < 8f) return@Canvas

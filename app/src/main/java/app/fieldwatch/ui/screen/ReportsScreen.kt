@@ -94,6 +94,7 @@ fun ReportsScreen(
     var confirmDeleteAll by remember { mutableStateOf(false) }
     var confirmClearTraining by remember { mutableStateOf(false) }
     val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     Scaffold(
         contentWindowInsets = NestedTabInsets,
         topBar = { NestedTopBar(strings.reportsTitle) },
@@ -108,7 +109,7 @@ fun ReportsScreen(
         ) {
             if (settings.demoMode) {
                 Text(
-                    if (strings.isEs) {
+                    if (isEs) {
                         "Modo de privacidad activado. Las terminaciones MAC en informes, comparaciones de situación, exportación IA y compartir están como **:**:**. Las coordenadas GPS están ocultas. El archivo de registro, exportación de situación y archivos GPX / KML / WiGLE conservan direcciones completas y coordenadas."
                     } else {
                         "Privacy mode is on. MAC tails in Debrief, sit compare, AI Export (sit or compare), and detail Share are **:**:**. GPS coordinates are masked. The log file, sit export, and GPX / KML / WiGLE files still have full addresses and lat/lon."
@@ -128,7 +129,7 @@ fun ReportsScreen(
                 if (open != null) {
                     val dur = Sit.fmtDuration(open.durationMs())
                     Text(
-                        if (strings.isEs) "Esta situación: ${open.name} · $dur · ${state.sit.radioCount} radios"
+                        if (isEs) "Esta situación: ${open.name} · $dur · ${state.sit.radioCount} radios"
                         else "This sit: ${open.name} · $dur · ${state.sit.radioCount} radios",
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -150,7 +151,7 @@ fun ReportsScreen(
                         if (state.sit.closed.isEmpty()) {
                             strings.reportsNoSitRunning
                         } else {
-                            if (strings.isEs) "No hay ninguna situación activa. Inicia una aquí. La trayectoria e informes usarán la situación seleccionada."
+                            if (isEs) "No hay ninguna situación activa. Inicia una aquí. La trayectoria e informes usarán la situación seleccionada."
                             else "No sit running. Start sit here. Path and Debrief use the selected sit."
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -176,7 +177,7 @@ fun ReportsScreen(
                     state.sit.closed.forEach { row ->
                         val dur = Sit.fmtDuration(row.durationMs())
                         val extra = if (row.extraAttentionCount > 0) {
-                            if (strings.isEs) " · Atención especial ${row.extraAttentionCount}"
+                            if (isEs) " · Atención especial ${row.extraAttentionCount}"
                             else " · Extra attention ${row.extraAttentionCount}"
                         } else {
                             ""
@@ -191,7 +192,7 @@ fun ReportsScreen(
                     }
                     if (open != null) {
                         Text(
-                            if (strings.isEs) "Finaliza la situación actual para seleccionar una guardada para Trayectoria e Informes."
+                            if (isEs) "Finaliza la situación actual para seleccionar una guardada para Trayectoria e Informes."
                             else "End sit to pick a saved one for Path and Debrief.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -242,7 +243,7 @@ fun ReportsScreen(
                 val model = pathModel
                 val showWalk = model != null && model.emptyHint == null
                 val showAircraft = model != null && model.aircraftCards.isNotEmpty()
-                val emptyHintDefault = if (strings.isEs) {
+                val emptyHintDefault = if (isEs) {
                     "Etiqueta detecciones con GPS y camina, o abre una situación que haya registrado una ruta."
                 } else {
                     "Tag detections with GPS and walk, or open a sit that recorded a path."
@@ -267,7 +268,7 @@ fun ReportsScreen(
                     val stopN = model.dots.size
                     Text(
                         buildString {
-                            if (strings.isEs) {
+                            if (isEs) {
                                 append("${model.title} · ${model.lengthM.toInt()} m de ruta · ${model.spanM.toInt()} m de alcance")
                                 if (stopN > 0) {
                                     append(" · $stopN alerta")
@@ -285,7 +286,7 @@ fun ReportsScreen(
                     )
                     SitPathCanvas(model, tiles = pathTiles, onOpenRadio = onOpenPathRadio)
                     Text(
-                        if (strings.isEs) "Toca un número para ver las radios en ese punto. Toca un icono para ver esa radio. Toca de nuevo para cerrar. Toca una fila para abrir la radio."
+                        if (isEs) "Toca un número para ver las radios en ese punto. Toca un icono para ver esa radio. Toca de nuevo para cerrar. Toca una fila para abrir la radio."
                         else "Tap a count for the radios there. Tap a single icon for that one radio. Tap again to close. Tap a row in that list, or a row below, to open that radio.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -300,7 +301,7 @@ fun ReportsScreen(
                                 ) {
                                     if (multi) AdvertisedTrackSwatch() else AdvertisedRingSwatch()
                                     Text(
-                                        if (strings.isEs) {
+                                        if (isEs) {
                                             if (multi) "= trayectoria transmitida a menos de 2 km de esta ruta"
                                             else "= una posición transmitida a menos de 2 km de esta ruta"
                                         } else {
@@ -319,7 +320,7 @@ fun ReportsScreen(
                                 ) {
                                     PilotSwatch()
                                     Text(
-                                        if (strings.isEs) "= piloto" else "= pilot",
+                                        if (isEs) "= piloto" else "= pilot",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -330,7 +331,7 @@ fun ReportsScreen(
                     val alertsOnACard = model.aircraftCards.any { it.dots.isNotEmpty() }
                     if (model.dots.isEmpty() && !alertsOnACard) {
                         Text(
-                            if (strings.isEs) "No hay alertas de MAC o firmas con marca GPS en esta ruta."
+                            if (isEs) "No hay alertas de MAC o firmas con marca GPS en esta ruta."
                             else "No MAC or signature alerts with a GPS stamp on this path.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -358,7 +359,7 @@ fun ReportsScreen(
                         )
                         Text(
                             buildString {
-                                if (strings.isEs) {
+                                if (isEs) {
                                     append(if (fixes == 1) "1 posición transmitida" else "$fixes posiciones transmitidas")
                                     if (card.lengthM >= 1.0) append(" · ${card.lengthM.toInt()} m")
                                 } else {
@@ -370,7 +371,7 @@ fun ReportsScreen(
                         )
                         if (card.dots.isNotEmpty()) {
                             Text(
-                                if (strings.isEs) {
+                                if (isEs) {
                                     if (card.dots.size == 1) "1 alerta" else "${card.dots.size} alertas"
                                 } else {
                                     if (card.dots.size == 1) "1 alert" else "${card.dots.size} alerts"
@@ -406,7 +407,7 @@ fun ReportsScreen(
                     }
                     if (model.looseAdvertised > 0) {
                         Text(
-                            if (strings.isEs) {
+                            if (isEs) {
                                 if (model.looseAdvertised == 1) "Una posición transmitida sin ID de UAS está en el informe de situación."
                                 else "Posiciones transmitidas sin ID de UAS están en el informe de situación."
                             } else {
@@ -437,7 +438,7 @@ fun ReportsScreen(
                 ) { Text(strings.reportsDebriefPdf) }
             }
             Text(
-                sitReportCaption(state, strings.isEs),
+                sitReportCaption(state, isEs),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -479,12 +480,12 @@ fun ReportsScreen(
                 kind = sitKind,
                 radios = sitRadios,
                 exporting = exporting,
-                isEs = strings.isEs,
+                isEs = isEs,
                 onKind = vm::setSitExportKind,
                 onRadios = vm::setSitExportRadios,
                 onShare = vm::startSitExport,
                 onSave = onSaveSitToStorage,
-                hint = if (strings.isEs) {
+                hint = if (isEs) {
                     "Una fila por cada radio única en esta situación (o últimos 15 min). Las líneas CSV / JSON incluyen firmas reconocidas y familias de atención especial. No es el registro rotativo. GPX / KML incluyen la trayectoria de este teléfono como ruta y puntos de detección. Fieldwatch no sube datos. El modo de privacidad no oculta este archivo."
                 } else {
                     "One row per unique radio in this sit (or last 15 minutes). CSV / JSON lines include matched signatures and Extra attention families. Not the rotating log. GPX / KML include this phone’s path as a track plus hear-points. Fieldwatch does not upload. Privacy mode does not mask this file."
@@ -494,7 +495,7 @@ fun ReportsScreen(
 
             SectionCard(strings.reportsCompareSection) {
                 Text(
-                    compareThisCaption(state, strings.isEs),
+                    compareThisCaption(state, isEs),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -502,14 +503,14 @@ fun ReportsScreen(
                 val choices = SitDiff.secondSitChoices(state.sit.closed, thisSaved)
                 if (choices.isEmpty()) {
                     Text(
-                        if (strings.isEs) "Guarda una segunda situación para comparar. Inicia situación y luego finalízala. Los últimos 15 minutos pueden usarse como la situación actual."
+                        if (isEs) "Guarda una segunda situación para comparar. Inicia situación y luego finalízala. Los últimos 15 minutos pueden usarse como la situación actual."
                         else "Save a second sit to compare. Start sit, then End sit. Last 15 minutes can be this sit.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     Text(
-                        if (strings.isEs) "Segunda situación" else "Second sit",
+                        if (isEs) "Segunda situación" else "Second sit",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     choices.forEach { row ->
@@ -539,7 +540,7 @@ fun ReportsScreen(
                     ) { Text(strings.reportsComparePdf) }
                 }
                 Text(
-                    if (strings.isEs) "Mismo informe, dos formatos. Solo presencia — solo en esta situación, solo en la segunda o en ambas. Tipo + MAC. Radios con atención especial y con nombre marcadas. No es una posición de radio."
+                    if (isEs) "Mismo informe, dos formatos. Solo presencia — solo en esta situación, solo en la segunda o en ambas. Tipo + MAC. Radios con atención especial y con nombre marcadas. No es una posición de radio."
                     else "Same report, two formats. Presence only — only in this sit, only in the second, in both. Kind + MAC. Extra attention and Named radios are marked. Not a radio fix.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -550,7 +551,7 @@ fun ReportsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(strings.reportsAiExport) }
                 Text(
-                    if (strings.isEs) "Apéndice listo para pegar: superposición, atención especial / radios con nombre exclusivas, qué reduciría otra situación. No reimprime las listas de comparación. La exportación IA del informe permanece en esta ventana."
+                    if (isEs) "Apéndice listo para pegar: superposición, atención especial / radios con nombre exclusivas, qué reduciría otra situación. No reimprime las listas de comparación. La exportación IA del informe permanece en esta ventana."
                     else "Paste-ready addendum: overlap, exclusive Extra attention / Named radios, what another sit would shrink. Does not reprint the compare lists. Sit report AI Export stays this window only.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -571,10 +572,11 @@ fun ReportsScreen(
             }
 
             // FASE 1.5: recolección y exportación de datos para entrenar ML.
-            SectionCard("Training data") {
+            // FASE 5 (Bloque 4): textos bilingües.
+            SectionCard(if (isEs) "Datos de entrenamiento" else "Training data") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Collect behavioral features",
+                    if (isEs) "Recolectar features de comportamiento" else "Collect behavioral features",
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -585,9 +587,17 @@ fun ReportsScreen(
             }
             Text(
                 if (settings.trainingCollectionEnabled) {
-                    "On. One JSONL row per new radio: features + heuristic guess + MAC hash (no raw MAC). Stays on this phone. Long-term dataset for FASE 1.5."
+                    if (isEs) {
+                        "Activado. Una fila JSONL por radio nueva: features + conjetura heurística + hash de MAC (sin MAC en claro). Permanece en este teléfono. Dataset a largo plazo para FASE 1.5."
+                    } else {
+                        "On. One JSONL row per new radio: features + heuristic guess + MAC hash (no raw MAC). Stays on this phone. Long-term dataset for FASE 1.5."
+                    }
                 } else {
-                    "Off. When on, one JSONL row per new radio (features only, MAC hashed). Feeds a future ML model. Requires 5-6 months of daily use + manual labeling."
+                    if (isEs) {
+                        "Desactivado. Al activarlo, una fila JSONL por radio nueva (solo features, MAC con hash). Alimenta un futuro modelo ML. Requiere 5-6 meses de uso diario + etiquetado manual."
+                    } else {
+                        "Off. When on, one JSONL row per new radio (features only, MAC hashed). Feeds a future ML model. Requires 5-6 months of daily use + manual labeling."
+                    }
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -596,12 +606,17 @@ fun ReportsScreen(
             val total = trainingCounts.first
             val labeled = trainingCounts.second
             Text(
-                "$total samples · $labeled labeled",
+                if (isEs) "$total muestras · $labeled etiquetadas"
+                else "$total samples · $labeled labeled",
                 style = MaterialTheme.typography.bodyMedium,
             )
             if (labeled in 1 until 50) {
                 Text(
-                    "Aim for 50+ labeled per class before training. Keep labeling on detail pages when you recognize a device.",
+                    if (isEs) {
+                        "Objetivo: 50+ etiquetadas por clase antes de entrenar. Sigue etiquetando en las páginas de detalle cuando reconozcas un dispositivo."
+                    } else {
+                        "Aim for 50+ labeled per class before training. Keep labeling on detail pages when you recognize a device."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -614,25 +629,25 @@ fun ReportsScreen(
                     onClick = vm::startExportTrainingData,
                     enabled = !exporting && total > 0,
                     modifier = Modifier.weight(1f),
-                ) { Text(if (strings.isEs) "Exportar conjunto" else "Export dataset") }
+                ) { Text(if (isEs) "Exportar conjunto" else "Export dataset") }
                 FieldwatchActionButton(
                     onClick = { confirmClearTraining = true },
                     enabled = !exporting && total > 0,
                     modifier = Modifier.weight(1f),
-                ) { Text(if (strings.isEs) "Borrar" else "Clear") }
+                ) { Text(if (isEs) "Borrar" else "Clear") }
             }
             if (confirmClearTraining) {
                 AlertDialog(
                     onDismissRequest = { confirmClearTraining = false },
-                    title = { Text(if (strings.isEs) "¿Borrar datos de entrenamiento?" else "Clear training data?") },
+                    title = { Text(if (isEs) "¿Borrar datos de entrenamiento?" else "Clear training data?") },
                     text = {
-                        Text(if (strings.isEs) "Elimina todas las muestras recopiladas en este teléfono. No se puede deshacer. Exporta primero si deseas una copia de seguridad." else "Deletes all collected feature samples from this phone. This cannot be undone. Export first if you want a backup.")
+                        Text(if (isEs) "Elimina todas las muestras recopiladas en este teléfono. No se puede deshacer. Exporta primero si deseas una copia de seguridad." else "Deletes all collected feature samples from this phone. This cannot be undone. Export first if you want a backup.")
                     },
                     confirmButton = {
                         TextButton(onClick = {
                             confirmClearTraining = false
                             vm.clearTrainingData()
-                        }) { Text(if (strings.isEs) "Borrar" else "Clear") }
+                        }) { Text(if (isEs) "Borrar" else "Clear") }
                     },
                     dismissButton = {
                         TextButton(onClick = { confirmClearTraining = false }) { Text(strings.cancel) }
@@ -643,7 +658,7 @@ fun ReportsScreen(
 
             SectionCard(strings.reportsLogExportSection) {
             Text(
-                if (strings.isEs) {
+                if (isEs) {
                     "${state.logLines} líneas esta sesión  ·  ${vm.logBytes() / 1024} KB en disco" +
                         if (settings.loggingEnabled) "" else "  ·  registro desactivado"
                 } else {
@@ -658,12 +673,12 @@ fun ReportsScreen(
                 kind = logKind,
                 radios = logRadios,
                 exporting = exporting,
-                isEs = strings.isEs,
+                isEs = isEs,
                 onKind = vm::setLogExportKind,
                 onRadios = vm::setLogExportRadios,
                 onShare = vm::startExport,
                 onSave = onSaveToStorage,
-                hint = if (strings.isEs) {
+                hint = if (isEs) {
                     "El archivo rotativo es JSON lines. CSV contiene las mismas filas en formato de tabla. GPX (GPS Exchange), KML (Google Earth) y WiGLE CSV (wigle.net) son puntos de escucha: dónde estaba este teléfono al detectar cada radio, no una posición calculada. Requiere etiquetar con GPS y registro activo. Compartir usa el menú estándar de Android — Fieldwatch no sube nada a internet."
                 } else {
                     "The rotating file is JSON lines. CSV is the same rows as a spreadsheet. GPX — GPS Exchange, KML — Google Earth, and WiGLE CSV — wigle.net are hear-points: where this phone was when it heard each radio, not a radio fix. Tag detections with GPS and logging on. Share uses the Android share sheet — Fieldwatch does not upload."
@@ -687,7 +702,7 @@ fun ReportsScreen(
                         TextButton(onClick = {
                             confirmClear = false
                             vm.clearLogs()
-                        }) { Text(if (strings.isEs) "Borrar registro" else "Clear log") }
+                        }) { Text(if (isEs) "Borrar registro" else "Clear log") }
                     },
                     dismissButton = {
                         TextButton(onClick = { confirmClear = false }) { Text(strings.cancel) }
@@ -700,16 +715,16 @@ fun ReportsScreen(
     if (startSit) {
         AlertDialog(
             onDismissRequest = { startSit = false },
-            title = { Text(if (strings.isEs) "Iniciar situación" else "Start sit") },
+            title = { Text(if (isEs) "Iniciar situación" else "Start sit") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     FieldwatchOutlinedField(
                         value = sitNameDraft,
                         onValueChange = { sitNameDraft = it.take(Sit.NAME_MAX) },
-                        label = if (strings.isEs) "Nombre" else "Name",
+                        label = if (isEs) "Nombre" else "Name",
                     )
                     Text(
-                        if (strings.isEs) "El informe de misión y la exportación IA usarán esta ventana hasta que la finalices. La lista En vivo no cambia."
+                        if (isEs) "El informe de misión y la exportación IA usarán esta ventana hasta que la finalices. La lista En vivo no cambia."
                         else "Debrief and AI Export use this window until you end it. The Live list is unchanged.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -727,7 +742,7 @@ fun ReportsScreen(
                 TextButton(onClick = {
                     startSit = false
                     vm.startSit(sitNameDraft)
-                }) { Text(if (strings.isEs) "Iniciar" else "Start") }
+                }) { Text(if (isEs) "Iniciar" else "Start") }
             },
             dismissButton = {
                 TextButton(onClick = { startSit = false }) { Text(strings.cancel) }
@@ -738,12 +753,12 @@ fun ReportsScreen(
     if (renaming != null) {
         AlertDialog(
             onDismissRequest = { renameSitId = null },
-            title = { Text(if (strings.isEs) "Renombrar situación" else "Rename sit") },
+            title = { Text(if (isEs) "Renombrar situación" else "Rename sit") },
             text = {
                 FieldwatchOutlinedField(
                     value = renameDraft,
                     onValueChange = { renameDraft = it.take(Sit.NAME_MAX) },
-                    label = if (strings.isEs) "Nombre" else "Name",
+                    label = if (isEs) "Nombre" else "Name",
                 )
             },
             confirmButton = {
@@ -761,8 +776,8 @@ fun ReportsScreen(
     if (deleting != null) {
         AlertDialog(
             onDismissRequest = { deleteSitId = null },
-            title = { Text(if (strings.isEs) "¿Eliminar esta situación?" else "Delete this sit?") },
-            text = { Text(if (strings.isEs) "Elimina la situación guardada de este teléfono. El registro no cambia." else "Removes the saved sit from this phone. The log is unchanged.") },
+            title = { Text(if (isEs) "¿Eliminar esta situación?" else "Delete this sit?") },
+            text = { Text(if (isEs) "Elimina la situación guardada de este teléfono. El registro no cambia." else "Removes the saved sit from this phone. The log is unchanged.") },
             confirmButton = {
                 TextButton(onClick = {
                     deleteSitId = null
@@ -783,7 +798,7 @@ fun ReportsScreen(
                 TextButton(onClick = {
                     confirmDeleteAll = false
                     vm.deleteAllSits()
-                }) { Text(if (strings.isEs) "Eliminar todo" else "Delete all") }
+                }) { Text(if (isEs) "Eliminar todo" else "Delete all") }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDeleteAll = false }) { Text(strings.cancel) }

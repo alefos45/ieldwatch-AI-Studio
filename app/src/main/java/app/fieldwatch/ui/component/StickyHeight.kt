@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -44,7 +45,14 @@ fun StickyHeight(
     }
 }
 
-/** Caption that keeps the tallest of [text] and [variants] so toggles do not shove the page. */
+/**
+ * Caption that keeps the tallest of [text] and [variants] so toggles do not
+ * shove the page.
+ *
+ * FASE 5 (Bloque 6): los textos transparentes eran nodos semánticos y
+ * TalkBack los anunciaba todos concatenados al enfocar el área. Ahora se
+ * marcan `clearAndSetSemantics {}` para que solo se lea el [text] visible.
+ */
 @Composable
 fun StableCaption(
     text: String,
@@ -59,7 +67,9 @@ fun StableCaption(
                 sample,
                 style = style,
                 color = Color.Transparent,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clearAndSetSemantics { },
             )
         }
         Text(text, style = style, color = color, modifier = Modifier.fillMaxWidth())

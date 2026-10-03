@@ -2,6 +2,7 @@ package app.fieldwatch.ui.screen
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -42,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import app.fieldwatch.domain.Sit
+import app.fieldwatch.ui.a11y.LocalA11yState
 import app.fieldwatch.ui.i18n.LocalAppStrings
 import app.fieldwatch.ui.i18n.localizedLabel
 import androidx.compose.runtime.Composable
@@ -68,6 +70,9 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -507,6 +512,11 @@ private fun OutlineGroupRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = if (indent) 16.dp else 0.dp)
+            // FASE 5 (Bloque 6): mergeDescendants une icono + título + count
+            // para que TalkBack lea "Cámaras, 3" como una unidad.
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$title $count"
+            }
             .clickable(onClick = onToggle),
     ) {
         Row(
@@ -522,7 +532,7 @@ private fun OutlineGroupRow(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             glyph,
-                            contentDescription = title,
+                            contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = mark.copy(alpha = if (empty) 0.55f else 1f),
                         )
@@ -729,11 +739,19 @@ private fun DrawScope.drawRadarContact(
 /**
  * Vsync sweep so the beam still moves when Developer options
  * Animator duration scale is off (tween infinite animations freeze).
+ *
+ * FASE 5 (Bloque 7): si `a11yReduceMotion` está activo, el sweep queda
+ * congelado en 0f. El radar sigue dibujándose estático.
  */
 @Composable
 private fun rememberRadarSweepDegrees(periodMs: Int = 4200): MutableFloatState {
+    val reduceMotion = LocalA11yState.current.reduceMotion
     val sweep = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(periodMs) {
+    LaunchedEffect(periodMs, reduceMotion) {
+        if (reduceMotion) {
+            sweep.floatValue = 0f
+            return@LaunchedEffect
+        }
         var last = 0L
         val periodNs = periodMs * 1_000_000L
         while (isActive) {
@@ -766,6 +784,7 @@ private fun RadarView(
 ) {
     val sweep = rememberRadarSweepDegrees()
     val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     val night = LocalNightMode.current
     val ring = MaterialTheme.colorScheme.outline
     val beam = MaterialTheme.colorScheme.primary
@@ -789,6 +808,24 @@ private fun RadarView(
     var zoom by zoomState
     val liveRef = remember { mutableStateOf(devices) }
     liveRef.value = devices
+    // FASE 5 (Bloque 3): el radio de toque debe ser dp, no píxeles.
+    // Antes era 48f → ~16dp reales en pantalla 3x. Ahora 48dp reales.
+    val density = LocalDensity.current
+    val hitRadiusPx = with(density) { 48.dp.toPx() }
+    // FASE 5 (Bloque 6): descripción del radar para TalkBack.
+    val radarA11y = buildString {
+        if (devices.isEmpty()) {
+            append(emptyHint ?: (if (isEs) "Radar vacío. No hay dispositivos que coincidan." else "Radar empty. No devices match."))
+        } else {
+            if (isEs) {
+                append("Radar. $onAir en el aire, ${devices.size} en el filtro. ")
+                append("Toca un punto para abrir el detalle. Doble toque reinicia el zoom.")
+            } else {
+                append("Radar. $onAir on air, ${devices.size} in the filter. ")
+                append("Tap a blip to open detail. Double-tap resets zoom.")
+            }
+        }
+    }
     LaunchedEffect(flashKeys) {
         val t = System.currentTimeMillis()
         flashKeys.forEach { key -> if (key !in flashAt) flashAt[key] = t }
@@ -810,7 +847,7 @@ private fun RadarView(
                 device to (radarPoint(device, c, maxR, rssi, z) - tap).getDistance()
             }
             .minByOrNull { it.second }
-            ?.takeIf { it.second < 48f }
+            ?.takeIf { it.second < hitRadiusPx }
             ?.first
     }
 
@@ -819,6 +856,7 @@ private fun RadarView(
             Modifier
                 .fillMaxSize()
                 .padding(8.dp)
+                .semantics { contentDescription = radarA11y }
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
@@ -920,7 +958,7 @@ private fun RadarView(
 
             drawCircle(youColor, radius = 7f, center = c)
             drawCircle(youColor.copy(alpha = 0.2f), radius = 16f, center = c)
-            val you = measurer.measure(if (strings.isEs) "TÚ" else "YOU", ringStyle.copy(color = youColor, fontWeight = FontWeight.Bold))
+            val you = measurer.measure(if (isEs) "TÚ" else "YOU", ringStyle.copy(color = youColor, fontWeight = FontWeight.Bold))
             drawText(you, topLeft = Offset(c.x - you.size.width / 2f, c.y + 12f))
         }
 
@@ -931,15 +969,15 @@ private fun RadarView(
         ) {
             Text(
                 if (devices.isEmpty()) {
-                    emptyHint ?: if (strings.isEs) "Ningún dispositivo coincide con el filtro actual" else "No devices match the current filter"
+                    emptyHint ?: if (isEs) "Ningún dispositivo coincide con el filtro actual" else "No devices match the current filter"
                 } else {
                     val zoomBit = if (zoom > 1.04f) {
-                        if (strings.isEs) " · ×${"%.1f".format(Locale.US, zoom)} · doble toque reiniciar"
+                        if (isEs) " · ×${"%.1f".format(Locale.US, zoom)} · doble toque reiniciar"
                         else " · ×${"%.1f".format(Locale.US, zoom)} · double-tap reset"
                     } else {
-                        if (strings.isEs) " · pellizca para zoom" else " · pinch to zoom"
+                        if (isEs) " · pellizca para zoom" else " · pinch to zoom"
                     }
-                    if (strings.isEs) "$onAir en el aire · ${devices.size} filtrados · atenuado = fuera de línea · toca un punto$zoomBit"
+                    if (isEs) "$onAir en el aire · ${devices.size} filtrados · atenuado = fuera de línea · toca un punto$zoomBit"
                     else "$onAir on-air · ${devices.size} in filter · dim = gone · tap a blip$zoomBit"
                 },
                 style = MaterialTheme.typography.labelSmall,
@@ -1143,6 +1181,8 @@ fun DeviceRow(
     alerted: Boolean = false,
 ) {
     val strings = LocalAppStrings.current
+    val isEs = strings.isEs
+    val reduceMotion = LocalA11yState.current.reduceMotion
     val heardRssi = device.heardRssi(sort, windowMs, now).toInt()
     val rankRssi = device.sortRssi(sort, windowMs, now).toInt()
     val accent = (device.fleetIds.firstOrNull()
@@ -1152,9 +1192,11 @@ fun DeviceRow(
     val named = showFleet && device.fleetIds.isNotEmpty()
     val roomy = showBar || sparklines || showSeenTimes
     val flash = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+    val targetColor = if (highlighted) flash else MaterialTheme.colorScheme.surface
+    // FASE 5 (Bloque 7): si reduceMotion, el flash cambia instantáneo.
     val rowColor by animateColorAsState(
-        targetValue = if (highlighted) flash else MaterialTheme.colorScheme.surface,
-        animationSpec = tween(if (highlighted) 90 else 280),
+        targetValue = targetColor,
+        animationSpec = if (reduceMotion) snap() else tween(if (highlighted) 90 else 280),
         label = "alertFlash",
     )
     val behavioralKind = remember(device.key, device.rssiHistory.size, device.firstSeen) {
@@ -1237,14 +1279,20 @@ fun DeviceRow(
                     }
                     if (showNewAge) {
                         val ageSec = ((now - device.firstSeen) / 1000L).coerceAtLeast(0L)
+                        val newLabel = if (ageSec < 60L) {
+                            if (isEs) "nueva ${ageSec}s" else "new ${ageSec}s"
+                        } else {
+                            val min = ageSec / 60L
+                            if (isEs) "nueva ${min}m" else "new ${min}m"
+                        }
                         Text(
-                            if (ageSec < 60L) "new ${ageSec}s" else "new ${ageSec / 60L}m",
+                            newLabel,
                             style = compactLine(10.sp, 11.sp).copy(fontFamily = FontFamily.Monospace),
                             color = MaterialTheme.colorScheme.primary,
                         )
                     } else if (sort == StrengthSort.AVERAGE) {
                         Text(
-                            "avg $rankRssi",
+                            if (isEs) "prom $rankRssi" else "avg $rankRssi",
                             style = compactLine(10.sp, 11.sp).copy(fontFamily = FontFamily.Monospace),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1284,6 +1332,8 @@ private fun FleetNameChips(
     observed: Boolean = false,
     behavioral: BehavioralKind? = null,
 ) {
+    val strings = LocalAppStrings.current
+    val isEs = strings.isEs
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1320,7 +1370,7 @@ private fun FleetNameChips(
             ) {
                 Icon(
                     Icons.AutoMirrored.Outlined.Notes,
-                    contentDescription = "Observer notes",
+                    contentDescription = if (isEs) "Notas del observador" else "Observer notes",
                     modifier = Modifier
                         .padding(horizontal = 5.dp, vertical = 1.dp)
                         .size(11.dp),
@@ -1336,7 +1386,7 @@ private fun FleetNameChips(
             ) {
                 Icon(
                     Icons.Outlined.Notifications,
-                    contentDescription = "Alerted this session",
+                    contentDescription = if (isEs) "Alerta disparada esta sesión" else "Alerted this session",
                     modifier = Modifier
                         .padding(horizontal = 5.dp, vertical = 1.dp)
                         .size(11.dp),
@@ -1449,6 +1499,7 @@ private fun TimelineView(
     demoMode: Boolean = false,
 ) {
     val strings = LocalAppStrings.current
+    val reduceMotion = LocalA11yState.current.reduceMotion
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -1489,9 +1540,12 @@ private fun TimelineView(
                 ?: rssiColor(device.rssi))
                 .nightIf(LocalNightMode.current)
             val flash = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+            val isFlashing = device.key in flashKeys
+            val targetColor = if (isFlashing) flash else MaterialTheme.colorScheme.surface
+            // FASE 5 (Bloque 7): snap si reduceMotion.
             val rowColor by animateColorAsState(
-                targetValue = if (device.key in flashKeys) flash else MaterialTheme.colorScheme.surface,
-                animationSpec = tween(if (device.key in flashKeys) 90 else 280),
+                targetValue = targetColor,
+                animationSpec = if (reduceMotion) snap() else tween(if (isFlashing) 90 else 280),
                 label = "alertFlash",
             )
             val behavioralKind = remember(device.key, device.rssiHistory.size, device.firstSeen) {
