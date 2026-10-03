@@ -497,14 +497,22 @@ private fun FieldwatchShell(
         topBar = {
             if (route != "detail" && route != "hunt") {
                 TopAppBar(
-                    expandedHeight = 52.dp,
+                    // FASE 5 (fix XOS): quitado expandedHeight=52.dp.
+                    // En este equipo el default de M3 (64 dp) es más seguro:
+                    // el título tiene dos filas y con fontScale alto se
+                    // cortaba con 52.
                     title = {
                         val screenW = LocalConfiguration.current.screenWidthDp.dp
                         val actionW = if (route == "live") 56.dp else 16.dp
+                        // FASE 5 (fix XOS):
+                        //  - Quitado .fillMaxWidth(): widthIn(max) ya limita
+                        //    el ancho y el fill empujaba contra los actions.
+                        //  - Quitado el .semantics { contentDescription }:
+                        //    bloqueaba a TalkBack la lectura de los hijos
+                        //    (HeaderCount con su mergeDescendants propio).
                         Column(
                             modifier = Modifier
                                 .widthIn(max = (screenW - 20.dp - actionW).coerceAtLeast(120.dp))
-                                .fillMaxWidth()
                                 .pointerInput(route) {
                                     detectTapGestures(
                                         onDoubleTap = {
@@ -514,15 +522,6 @@ private fun FieldwatchShell(
                                             vm.focusLiveList()
                                         },
                                     )
-                                }
-                                // FASE 5 (Bloque 6): doble-tap no es descubrible
-                                // para TalkBack sin un contentDescription.
-                                .semantics {
-                                    contentDescription = if (isEs) {
-                                        "Barra de título Fieldwatch. Doble toque vuelve a En vivo y desplaza la lista al principio."
-                                    } else {
-                                        "Fieldwatch title bar. Double tap returns to Live and scrolls the list to top."
-                                    }
                                 },
                         ) {
                             val stringsTop = LocalAppStrings.current
@@ -548,7 +547,6 @@ private fun FieldwatchShell(
                                 val muted = MaterialTheme.colorScheme.onSurfaceVariant
                                 HeaderCount(state.wifiNow, Icons.Outlined.Wifi, "Wi-Fi")
                                 HeaderCount(state.bleNow, Icons.Outlined.Bluetooth, "BLE")
-                                // FASE 5 (Bloque 4): bilingüe.
                                 HeaderCount(
                                     state.namedNow,
                                     Icons.Outlined.Hub,
@@ -620,10 +618,13 @@ private fun FieldwatchShell(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 1.dp)
-                                // FASE 5 (Bloque 7): antes 48.dp fijo. Con
-                                // fontScale alto los labels se recortaban.
-                                // heightIn deja crecer la barra si hace falta.
-                                .heightIn(min = 48.dp),
+                                // FASE 5 (fix XOS): heightIn con max explícito.
+                                // Sin techo, la Row del bottomBar podía crecer
+                                // hasta la altura del padre (Scaffold midiendo
+                                // alto en XOS) y centraba los tabs a mitad de
+                                // pantalla. El max=72 rompe esa cadena.
+                                // min=48 sigue siendo el mínimo Material.
+                                .heightIn(min = 48.dp, max = 72.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                         val stringsBot = LocalAppStrings.current
@@ -952,8 +953,9 @@ private fun RowScope.FieldwatchNavTab(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
     // FASE 5:
-    //  - B3: .fillMaxHeight() para que el touch cubra los 48dp de la barra,
-    //        no solo la altura intrínseca del icon+label.
+    //  - B3: .fillMaxHeight() para que el touch cubra los 48dp de la barra.
+    //        Con el techo de 72dp del bottomBar, se acota solo. Sin el
+    //        techo, esta línea estiraba cada tab a toda la altura.
     //  - B6: selectable(Role.Tab) + semantics role/selected para que
     //        TalkBack anuncie "pestaña, seleccionada/no seleccionada".
     Column(
