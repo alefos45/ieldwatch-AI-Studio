@@ -1,5 +1,6 @@
 package app.fieldwatch.ui.component
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.sizeIn
@@ -7,6 +8,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,16 +66,15 @@ fun FieldwatchSwitch(
                 ),
             )
         }
-        // Touch: cubre 48×48 sin dibujar nada. interactionSource + indication
-        // a null explícito para que la sobrecarga de toggleable sea válida
-        // y no se añada un ripple sobre el overlay transparente.
+        // Touch: cubre 48×48 sin dibujar nada. indication = null evita
+        // que se añada un ripple sobre el overlay transparente.
         if (enabled && callback != null) {
             Box(
                 Modifier
                     .matchParentSize()
                     .toggleable(
                         value = checked,
-                        interactionSource = null,
+                        interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         role = Role.Switch,
                         onValueChange = callback,

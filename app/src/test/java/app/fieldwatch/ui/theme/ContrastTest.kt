@@ -1,4 +1,4 @@
-package app.fieldwatch.theme
+package app.fieldwatch.ui.theme
 
 import app.fieldwatch.domain.Palette
 import org.junit.Assert.assertTrue
