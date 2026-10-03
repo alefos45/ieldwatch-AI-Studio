@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
+  pull_request:
 
 jobs:
   build:
+    name: Tests + APK
     # Pin a ubuntu-24.04 hasta que valides la app en Ubuntu 26.
     # Cuando quieras migrar, cambia a ubuntu-latest.
     runs-on: ubuntu-24.04
@@ -50,8 +52,20 @@ jobs:
       - name: Grant execute to gradlew
         run: chmod +x ./gradlew
 
+      - name: Unit tests
+        run: sh gradlew testDebugUnitTest --stacktrace
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report-${{ github.sha }}
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: sh gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
