@@ -5,6 +5,12 @@ on:
   push:
     branches: [ main ]
 
+env:
+  # Fuerza a las actions viejas (Node 20) a correr en Node 24.
+  # Necesario porque android-actions/setup-android@v3 aún no publicó
+  # una versión con Node 24. Se aplica a todo el workflow.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,7 +21,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        # v5 ya está en Node 24 nativo, sin deprecation warnings.
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -45,7 +52,8 @@ jobs:
       - name: Grant execute to gradlew
         run: chmod +x ./gradlew
 
-      # Descomenta estas dos líneas cuando tengas Robolectric configurado en build.gradle.kts
+      # Descomenta estas dos líneas cuando apliquemos el build.gradle.kts
+      # con Robolectric y las dependencias de test.
       # - name: Run tests
       #   run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
