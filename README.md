@@ -1,5 +1,14 @@
 # Fieldwatch
 
+> **Fork notice**
+> This is a modified fork of [Fieldwatch](https://github.com/OffGridPete/Fieldwatch)
+> by Off Grid Pete LLC. Original copyright and MIT license preserved.
+> Modifications and current maintenance: [alefos45](https://github.com/alefos45).
+> Fork repository: [alefos45/ieldwatch-AI-Studio](https://github.com/alefos45/ieldwatch-AI-Studio).
+> See `CHANGELOG.md` for what changed.
+
+---
+
 I built Fieldwatch as a personal tool to look at what Wi-Fi access points and Bluetooth LE ads my phone was able to pick up, so that I could better understand what devices were being used around me. It’s passive, it only listens, there’s no dongle, no account, and no backend server. I wanted something that would work offline in the field.
 
 My goals were to have a modern interface that was easy to use, flexible in how information was displayed so I could customize a view based on what I was trying to do, a filtering engine so I do not have to look at everything, an extensible signature library so I can identify as many radio sources as possible and add new ones on the fly, as well as create reports of what was seen.
@@ -48,25 +57,25 @@ Android 10+. Allow install from the app you used to open the APK. Play Protect m
 
 ```bash
 adb install -r dist/Fieldwatch.apk
-```
-
-### Upgrading from 1.0.4 or earlier — Fieldwatch now has a real publisher certificate (one-time reinstall)
-
-This release is a little more professional about how the APK is signed. Android attaches a certificate to every app so the phone can tell “this update is from the same publisher as the app I already have.” Through 1.0.4, Fieldwatch used the generic Android developer certificate that the build tools ship with. That is normal while you are iterating, but people who scan a sideload APK (and some scanners) flag it: a public build should not look like a debug leftover. 1.0.5 is signed with an Off Grid Pete LLC certificate instead. Same hobby app; the file now has a publisher name scanners can check. The fingerprint is in `instruction.txt` if you want to compare.
+Upgrading from 1.0.4 or earlier — Fieldwatch now has a real publisher certificate (one-time reinstall)
+This release is a little more professional about how the APK is signed. Android attaches a certificate to every app so the phone can tell “this update is from the same publisher as the app I already have.” Through 1.0.4, Fieldwatch used the generic Android developer certificate that the build tools ship with. That is normal while you are iterating, but people who scan a sideload APK (and some scanners) flag it: a public build should not look like a debug leftover. 1.0.5 is signed with an Off Grid Pete LLC certificate instead. Same hobby app; the file now has a publisher name scanners can check. The fingerprint is in instruction.txt if you want to compare.
 
 The catch is one-time. The phone treats a new certificate as a different publisher, so it will not install 1.0.5 on top of 1.0.4 or earlier. You uninstall the old Fieldwatch, then install this APK. After that, later versions use the same certificate, so ordinary updates work again. You will not have to uninstall for 1.1.17.
 
-Uninstall wipes what is on the phone. If you added signatures, changed Settings, named radios, or saved filter presets, do this first: Settings → **Export signatures** and **Export settings**. Share or save those two files somewhere you can get them after. They are not the log and not GPS. Then uninstall (long-press the Fieldwatch icon, or `adb uninstall app.fieldwatch`), install 1.0.5, open it, tap through the disclaimer, and use **Import signatures** and **Import settings**. If you never customized, skip the export and just uninstall, then install.
+Uninstall wipes what is on the phone. If you added signatures, changed Settings, named radios, or saved filter presets, do this first: Settings → Export signatures and Export settings. Share or save those two files somewhere you can get them after. They are not the log and not GPS. Then uninstall (long-press the Fieldwatch icon, or adb uninstall app.fieldwatch), install 1.0.5, open it, tap through the disclaimer, and use Import signatures and Import settings. If you never customized, skip the export and just uninstall, then install.
 
-## What Fieldwatch is not
+What Fieldwatch is not
+Not Wi-Fi clients, probe-only stations, or 802.11 monitor mode
 
-- Not Wi-Fi clients, probe-only stations, or 802.11 monitor mode
-- Not Bluetooth Classic inquiry (HC-05 / HC-06 will not appear)
-- Not cellular
-- Not direction finding
+Not Bluetooth Classic inquiry (HC-05 / HC-06 will not appear)
 
-## Copyright and license
+Not cellular
 
+Not direction finding
+
+Copyright and license
 Copyright (c) 2026 Off Grid Pete LLC.
 
-Fieldwatch source is licensed under the [MIT License](LICENSE). AndroidX, Kotlin, and related libraries remain Apache-2.0. IEEE and Bluetooth SIG assigned-number tables in `radiodb.bin` are subject to those organizations’ terms. See [NOTICE](NOTICE).
+Modifications copyright (c) 2026 alefos45. Fork maintained at alefos45/ieldwatch-AI-Studio.
+
+Fieldwatch source is licensed under the MIT License. AndroidX, Kotlin, and related libraries remain Apache-2.0. IEEE and Bluetooth SIG assigned-number tables in radiodb.bin are subject to those organizations’ terms. See NOTICE.

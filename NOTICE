@@ -34,3 +34,17 @@ as original Fieldwatch source.
 
 Fieldwatch continues the Spectre 1.2.14 field build under a new name,
 application id (app.fieldwatch), and license.
+
+──────────────────────────────────────────────────────────────────────
+Modifications copyright (c) 2026 alefos45
+Fork maintained at https://github.com/alefos45/ieldwatch-AI-Studio
+
+This fork expands the signature catalog (63,729 entries via
+scripts/gen_catalog.py combining IEEE OUI, Bluetooth SIG, Google
+Fast Pair, Samsung, and BLE-DB), integrates it at runtime via
+CatalogStore.kt, fixes a Scaffold layout bug that affected Transsion
+XOS devices (Infinix, Tecno, itel), and consolidates the CI into a
+single GitHub Actions workflow.
+
+Original work copyright remains with Off Grid Pete LLC.
+──────────────────────────────────────────────────────────────────────

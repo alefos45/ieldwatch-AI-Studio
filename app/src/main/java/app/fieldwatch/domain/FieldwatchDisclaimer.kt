@@ -43,9 +43,16 @@ object FieldwatchDisclaimer {
 
     const val LICENSE_TITLE = "MIT License"
 
-    /** Body of LICENSE in the repository, without the title line. */
+    /**
+     * Body of LICENSE in the repository, without the title line.
+     * Original work copyright (c) 2026 Off Grid Pete LLC.
+     * Modifications copyright (c) 2026 alefos45.
+     * Fork maintained at https://github.com/alefos45/ieldwatch-AI-Studio.
+     */
     const val LICENSE_BODY =
-        "Copyright (c) 2026 Off Grid Pete LLC\n" +
+        "Original work copyright (c) 2026 Off Grid Pete LLC\n" +
+            "Modifications copyright (c) 2026 alefos45\n" +
+            "Fork maintained at https://github.com/alefos45/ieldwatch-AI-Studio\n" +
             "\n" +
             "Permission is hereby granted, free of charge, to any person obtaining a copy " +
             "of this software and associated documentation files (the \"Software\"), to deal " +

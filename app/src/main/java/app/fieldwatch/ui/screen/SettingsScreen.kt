@@ -1111,7 +1111,12 @@ private fun CreditFooter() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
-            "Copyright (c) 2026 Off Grid Pete LLC. All rights reserved.",
+            "Based on Fieldwatch by Off Grid Pete LLC",
+            style = MaterialTheme.typography.labelSmall,
+            color = muted,
+        )
+        Text(
+            "Fork maintained by alefos45",
             style = MaterialTheme.typography.labelSmall,
             color = muted,
         )
@@ -1130,6 +1135,12 @@ private fun CreditFooter() {
                 label = "@OGridPete",
                 tint = muted,
                 onClick = { openUrl(context, "https://x.com/OGridPete") },
+            )
+            SocialChip(
+                icon = R.drawable.ic_x,
+                label = "@alefos45",
+                tint = muted,
+                onClick = { openUrl(context, "https://github.com/alefos45") },
             )
         }
     }

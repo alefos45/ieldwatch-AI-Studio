@@ -1082,7 +1082,7 @@ object DebriefPdf {
             textSize = 8f
             isAntiAlias = true
         }
-        canvas.drawText("Off Grid Pete LLC  ·  operationally sensitive", MARGIN, PAGE_H - 18f, f)
+        canvas.drawText("Off Grid Pete LLC  ·  fork alefos45  ·  operationally sensitive", MARGIN, PAGE_H - 18f, f)
         val pn = "$page / $total"
         canvas.drawText(pn, PAGE_W - MARGIN - f.measureText(pn), PAGE_H - 18f, f)
     }
